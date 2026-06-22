@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0e1116">
+<title>Registro de Horas · KM & Ayleen</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#262d38;
+    --txt:#e6edf3; --muted:#8b97a6; --accent:#2ec4a6; --accent2:#3b82f6;
+    --green:#2ec4a6; --red:#f0616d; --gold:#e0b54a; --violet:#a371f7;
+    --radius:14px; --shadow:0 6px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased;font-size:15px}
+  a{color:var(--accent)}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px 90px}
+  header{position:sticky;top:0;z-index:20;background:rgba(14,17,22,.92);backdrop-filter:blur(8px);
+         border-bottom:1px solid var(--line);padding:12px 16px}
+  .hrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;max-width:1100px;margin:0 auto}
+  .brand{font-weight:700;font-size:16px;letter-spacing:.3px;display:flex;align-items:center;gap:8px}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  .spacer{flex:1}
+  select,input,button{font-family:inherit;font-size:14px;color:var(--txt);background:var(--panel2);
+        border:1px solid var(--line);border-radius:10px;padding:8px 10px;outline:none}
+  select:focus,input:focus{border-color:var(--accent)}
+  button{cursor:pointer;background:var(--panel2);transition:.15s}
+  button:hover{border-color:var(--accent)}
+  .btn-primary{background:var(--accent);color:#04201a;border-color:var(--accent);font-weight:600}
+  .btn-primary:hover{filter:brightness(1.08)}
+  .btn-ghost{background:transparent}
+  .pill{display:inline-flex;gap:6px;align-items:center}
+  nav.tabs{display:flex;gap:4px;overflow-x:auto;margin:14px 0 18px;padding-bottom:2px}
+  nav.tabs button{border-radius:999px;padding:9px 16px;white-space:nowrap;color:var(--muted);border:1px solid transparent;background:transparent}
+  nav.tabs button.active{background:var(--panel);color:var(--txt);border-color:var(--line)}
+  .grid{display:grid;gap:14px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+  .kpi .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+  .kpi .value{font-size:26px;font-weight:700;margin-top:6px}
+  .kpi .sub{color:var(--muted);font-size:12px;margin-top:4px}
+  h2{font-size:15px;margin:0 0 12px;color:var(--txt);font-weight:600}
+  h3{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:22px 0 10px}
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted)}
+  label.f input,label.f select{width:100%}
+  .row-check{display:flex;align-items:center;gap:8px;color:var(--txt);font-size:14px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0;background:var(--panel)}
+  tr:hover td{background:var(--panel2)}
+  .tableScroll{overflow:auto;max-height:62vh;border:1px solid var(--line);border-radius:var(--radius)}
+  .tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+  .tag.green{color:var(--green);border-color:var(--green)} .tag.red{color:var(--red);border-color:var(--red)}
+  .tag.gold{color:var(--gold);border-color:var(--gold)} .tag.violet{color:var(--violet);border-color:var(--violet)}
+  .tag.muted{color:var(--muted)}
+  .money{font-variant-numeric:tabular-nums}
+  .pos{color:var(--green)} .neg{color:var(--red)}
+  .del{color:var(--red);background:transparent;border:none;cursor:pointer;font-size:15px;padding:2px 6px}
+  .hint{color:var(--muted);font-size:12px;line-height:1.5}
+  .preview{background:var(--panel2);border:1px dashed var(--line);border-radius:12px;padding:14px;margin-top:12px}
+  .preview .big{font-size:24px;font-weight:700;color:var(--accent)}
+  .bd{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:12px;color:var(--muted)}
+  .bd b{color:var(--txt)}
+  .chartbox{position:relative;height:280px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.two{grid-template-columns:1fr}}
+  .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--accent);color:#04201a;
+         padding:10px 18px;border-radius:999px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:.3s;pointer-events:none}
+  .toast.show{opacity:1}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{border:none;border-radius:0;background:transparent;padding:7px 12px;color:var(--muted)}
+  .seg button.active{background:var(--accent);color:#04201a;font-weight:600}
+  .empty{text-align:center;color:var(--muted);padding:40px 10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <div class="brand"><span class="dot"></span> Registro de Horas <span style="color:var(--muted);font-weight:400">· KM &amp; Ayleen</span></div>
+    <div class="spacer"></div>
+    <div class="pill"><span class="hint">Perfil</span>
+      <select id="profileSel" title="Cambiar perfil"></select></div>
+    <div class="seg" id="curSeg" title="Moneda de visualización">
+      <button data-cur="AUD" class="active">AUD</button><button data-cur="USD">USD</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs" id="tabs">
+    <button data-tab="registrar" class="active">➕ Registrar</button>
+    <button data-tab="dashboard">📊 Dashboard</button>
+    <button data-tab="historial">📅 Historial</button>
+    <button data-tab="conciliacion">⚖️ Conciliación</button>
+    <button data-tab="config">⚙️ Configuración</button>
+  </nav>
+
+  <!-- REGISTRAR -->
+  <section id="tab-registrar">
+    <div class="card">
+      <h2>Registrar turno trabajado</h2>
+      <div class="form-grid">
+        <label class="f">Fecha<input type="date" id="r_date"></label>
+        <label class="f">Hora entrada<input type="time" id="r_start" value="08:00"></label>
+        <label class="f">Hora salida<input type="time" id="r_end" value="17:00"></label>
+        <label class="f">Descanso no pagado (min)<input type="number" id="r_break" min="0" step="5" placeholder="auto"></label>
+        <label class="f" style="justify-content:flex-end">
+          <span class="row-check"><input type="checkbox" id="r_holiday" style="width:auto"> Día feriado (public holiday)</span>
+        </label>
+        <label class="f">Nota<input type="text" id="r_note" placeholder="opcional"></label>
+      </div>
+      <div class="preview" id="r_preview"></div>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn-primary" id="r_save">Guardar turno</button>
+        <button class="btn-ghost" id="r_today">Hoy</button>
+      </div>
+      <p class="hint" style="margin-top:12px">El cálculo usa tus reglas de <b>Configuración</b> (tarifa por hora, recargo por día, horas extra y recargo nocturno). Cambia cualquier regla y todo se recalcula.</p>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="tab-dashboard" hidden>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <h2 style="margin:0">Resumen</h2><div class="spacer"></div>
+      <label class="f" style="flex-direction:row;align-items:center;gap:8px">Mes
+        <input type="month" id="d_month"></label>
+    </div>
+    <div class="grid cards" id="d_kpis"></div>
+    <div class="two" style="margin-top:14px">
+      <div class="card"><h2>Ingreso por quincena</h2><div class="chartbox"><canvas id="chartFortnight"></canvas></div></div>
+      <div class="card"><h2>Horas por día (mes)</h2><div class="chartbox"><canvas id="chartDays"></canvas></div></div>
+    </div>
+    <div class="two" style="margin-top:14px">
+      <div class="card"><h2>Composición del pago</h2><div class="chartbox"><canvas id="chartMix"></canvas></div></div>
+      <div class="card"><h2>Ingreso acumulado (mes)</h2><div class="chartbox"><canvas id="chartCum"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- HISTORIAL -->
+  <section id="tab-historial" hidden>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <h2 style="margin:0">Historial de turnos</h2><div class="spacer"></div>
+      <label class="f" style="flex-direction:row;align-items:center;gap:8px">Mes
+        <input type="month" id="h_month"></label>
+      <button class="btn-ghost" id="h_all">Ver todo</button>
+    </div>
+    <div class="tableScroll"><table id="h_table"></table></div>
+  </section>
+
+  <!-- CONCILIACION -->
+  <section id="tab-conciliacion" hidden>
+    <div class="card">
+      <h2>Conciliación · Calculado vs. Depositado</h2>
+      <p class="hint">Aquí está el verdadero valor: cada quincena el sistema calcula <b>lo que te DEBERÍAN pagar</b>. Escribe lo que <b>realmente te depositaron</b> y verás la diferencia al instante. 🎯</p>
+      <div class="tableScroll" style="margin-top:12px"><table id="c_table"></table></div>
+    </div>
+  </section>
+
+  <!-- CONFIG -->
+  <section id="tab-config" hidden>
+    <div class="card">
+      <h2>Configuración de <span id="cfg_profile_name"></span></h2>
+      <h3>Tarifa y moneda</h3>
+      <div class="form-grid">
+        <label class="f">Tarifa base (AUD/h)<input type="number" id="c_base" step="0.5"></label>
+        <label class="f">1 USD = ? AUD<input type="number" id="c_rate" step="0.01"></label>
+        <label class="f">Descanso no pagado por turno (min)<input type="number" id="c_break" step="5"></label>
+        <label class="f">Inicio de quincena (fecha ancla)<input type="date" id="c_anchor"></label>
+      </div>
+
+      <h3>Recargo por tipo de día (multiplicador)</h3>
+      <div class="form-grid">
+        <label class="f">Lun<input type="number" id="c_d1" step="0.05"></label>
+        <label class="f">Mar<input type="number" id="c_d2" step="0.05"></label>
+        <label class="f">Mié<input type="number" id="c_d3" step="0.05"></label>
+        <label class="f">Jue<input type="number" id="c_d4" step="0.05"></label>
+        <label class="f">Vie<input type="number" id="c_d5" step="0.05"></label>
+        <label class="f">Sáb<input type="number" id="c_d6" step="0.05"></label>
+        <label class="f">Dom<input type="number" id="c_d0" step="0.05"></label>
+        <label class="f">Feriado<input type="number" id="c_dh" step="0.05"></label>
+      </div>
+
+      <h3>Horas extra (overtime)</h3>
+      <div class="form-grid">
+        <label class="f">A partir de (h/día)<input type="number" id="c_otThresh" step="0.5"></label>
+        <label class="f">Primeras N horas extra<input type="number" id="c_otTier" step="0.5"></label>
+        <label class="f">Multiplicador 1ª franja<input type="number" id="c_otM1" step="0.1"></label>
+        <label class="f">Multiplicador resto<input type="number" id="c_otM2" step="0.1"></label>
+      </div>
+
+      <h3>Recargo nocturno (opcional)</h3>
+      <div class="form-grid">
+        <label class="f" style="justify-content:flex-end"><span class="row-check"><input type="checkbox" id="c_nEn" style="width:auto"> Activar</span></label>
+        <label class="f">Desde<input type="time" id="c_nStart"></label>
+        <label class="f">Hasta<input type="time" id="c_nEnd"></label>
+        <label class="f">Recargo (%)<input type="number" id="c_nPct" step="1"></label>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+        <button class="btn-primary" id="c_save">Guardar configuración</button>
+      </div>
+
+      <h3>Sincronización en la nube ☁️</h3>
+      <p class="hint">Pon el <b>mismo código</b> en tu celular y en el de Ayleen para ver y registrar los mismos datos desde cualquier lugar.</p>
+      <div class="form-grid">
+        <label class="f" style="grid-column:1/-1">Código de sincronización
+          <input type="text" id="sync_code" placeholder="ej. km-xxxx" autocomplete="off"></label>
+      </div>
+      <label class="row-check" style="margin:8px 0 12px"><input type="checkbox" id="sync_auto" style="width:auto"> Sincronizar automáticamente al registrar</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn-primary" id="sync_save">Activar sync</button>
+        <button id="sync_up">⬆️ Subir ahora</button>
+        <button id="sync_down">⬇️ Bajar ahora</button>
+        <button id="sync_gen" class="btn-ghost">Generar código</button>
+      </div>
+      <p class="hint" id="sync_status" style="margin-top:10px">Sin sincronizar (datos solo en este dispositivo).</p>
+
+      <h3>Datos &amp; respaldo</h3>
+      <p class="hint">Tus datos se guardan en <b>este dispositivo/navegador</b>. Exporta un respaldo (puedes guardarlo en Google Drive) para no perderlo.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button id="x_export">⬇️ Exportar respaldo (JSON)</button>
+        <button id="x_import">⬆️ Importar respaldo</button>
+        <input type="file" id="x_file" accept="application/json" hidden>
+        <button id="x_seed" class="btn-ghost">Cargar datos de ejemplo</button>
+        <button id="x_reset" class="btn-ghost" style="color:var(--red)">Borrar todo</button>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:14px;text-align:center">
+      Escalable a futuro: esta misma interfaz se puede conectar a una base de datos real (ej. Supabase) cuando quieras multiusuario en la nube, sin rehacer la app.
+    </p>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+/* ============================ Estado ============================ */
+const KEY = "ingresmosKM_v1";
+const DAY_ES = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+
+function defaultSettings(base){ return {
+  currency:"AUD", audPerUsd:1.50, baseRate:base, unpaidBreakMin:30,
+  anchor:"2026-06-09",
+  mult:{ d1:1, d2:1, d3:1, d4:1, d5:1, d6:1.25, d0:1.5 }, holidayMult:2.5,
+  ot:{ thresh:8, tierHours:2, m1:1.5, m2:2 },
+  night:{ enabled:false, start:"22:00", end:"06:00", pct:15 }
+};}
+
+function blankState(){ return {
+  activeProfile:"KM",
+  profiles:{
+    "KM":   { settings:defaultSettings(32), entries:[], deposits:{} },
+    "Ayleen":{ settings:defaultSettings(28), entries:[], deposits:{} }
+  }
+};}
+
+let S = load();
+function load(){ try{ const r=localStorage.getItem(KEY); if(r) return JSON.parse(r);}catch(e){} return blankState(); }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ toast("⚠️ No se pudo guardar"); } if(typeof schedulePush==="function") schedulePush(); }
+function P(){ return S.profiles[S.activeProfile]; }
+function cfg(){ return P().settings; }
+
+/* ============================ Sync en la nube ============================ */
+const CLOUD={url:"https://bvufwztuchqyfddsquuj.supabase.co",key:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2dWZ3enR1Y2hxeWZkZHNxdXVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNTA4OTcsImV4cCI6MjA5MTgyNjg5N30.b8HvXlvrUGFQp3FiJaq39pCDSvekq-kLda-DCKQy1tg"};
+const SKEY="ingresmosSync_v1";
+let sync=(()=>{ try{return JSON.parse(localStorage.getItem(SKEY))||{};}catch(e){return {};} })();
+function saveSync(){ try{localStorage.setItem(SKEY,JSON.stringify(sync));}catch(e){} }
+function setSyncStatus(msg){ const el=document.getElementById("sync_status"); if(el) el.textContent=msg; }
+async function rpc(fn,body){
+  const r=await fetch(CLOUD.url+"/rest/v1/rpc/"+fn,{method:"POST",
+    headers:{"Content-Type":"application/json","apikey":CLOUD.key,"Authorization":"Bearer "+CLOUD.key},
+    body:JSON.stringify(body)});
+  if(!r.ok){ const t=await r.text(); throw new Error("HTTP "+r.status+" "+t.slice(0,80)); }
+  const txt=await r.text(); return txt?JSON.parse(txt):null;
+}
+async function cloudPush(){
+  if(!sync.code){ setSyncStatus("Pon un codigo primero."); return; }
+  try{ setSyncStatus("Subiendo..."); 
+    const ts=await rpc("ingresmos_space_save",{p_code:sync.code,p_data:S});
+    sync.lastTs=ts; saveSync(); setSyncStatus("Subido "+new Date(ts).toLocaleString("es"));
+  }catch(e){ setSyncStatus("Error al subir: "+e.message); }
+}
+async function cloudPull(silent){
+  if(!sync.code) return false;
+  try{ if(!silent) setSyncStatus("Bajando...");
+    const res=await rpc("ingresmos_space_load",{p_code:sync.code});
+    if(res&&res.data&&res.data.profiles){
+      if(silent&&sync.lastTs&&res.updated_at&&new Date(res.updated_at)<=new Date(sync.lastTs)) return false;
+      S=res.data; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+      sync.lastTs=res.updated_at; saveSync(); renderAll();
+      setSyncStatus("Datos desde la nube ("+new Date(res.updated_at).toLocaleString("es")+")"); return true;
+    } else if(!silent){ setSyncStatus("Codigo nuevo: aun sin datos. Pulsa Subir ahora para guardar los actuales."); }
+  }catch(e){ setSyncStatus("Error al bajar: "+e.message); }
+  return false;
+}
+let pushT;
+function schedulePush(){ if(!sync.code||!sync.auto) return; clearTimeout(pushT); pushT=setTimeout(cloudPush,1500); }
+function randomCode(){ const a="abcdefghijkmnpqrstuvwxyz23456789",arr=new Uint8Array(22); crypto.getRandomValues(arr);
+  let s=""; for(const n of arr) s+=a[n%a.length]; return "km-"+s; }
+
+/* ============================ Utilidades ============================ */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function toMin(t){ if(!t) return 0; const [h,m]=String(t).split(":").map(Number); return (h||0)*60+(m||0); }
+let curDisplay = "AUD";
+function money(aud){
+  const c=cfg(); const showUSD = curDisplay==="USD";
+  const v = showUSD ? aud/(c.audPerUsd||1) : aud;
+  const sym = showUSD ? "US$" : "A$";
+  return sym + v.toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function hoursFmt(h){ return h.toLocaleString("es",{minimumFractionDigits:2,maximumFractionDigits:2})+" h"; }
+
+function nightOverlap(s,e,ns,ne){
+  let tot=0;
+  for(let d=-1;d<=1;d++){
+    const a=ns+d*1440;
+    const b=(ne<=ns?ne+1440:ne)+d*1440;
+    tot+=Math.max(0,Math.min(e,b)-Math.max(s,a));
+  }
+  return tot;
+}
+
+function calcEntry(en, c){
+  let s=toMin(en.start), e=toMin(en.end);
+  if(e<=s) e+=1440;
+  const brk = (en.brk!=null && en.brk!=="") ? Number(en.brk) : c.unpaidBreakMin;
+  let workedMin = Math.max(0, (e-s) - brk);
+  const hours = workedMin/60;
+
+  const dow = new Date(en.date+"T00:00:00").getDay();
+  const dayMult = en.holiday ? c.holidayMult : (c.mult["d"+dow] ?? 1);
+
+  const reg = Math.min(hours, c.ot.thresh);
+  const ot  = Math.max(0, hours - c.ot.thresh);
+  const ot1 = Math.min(ot, c.ot.tierHours);
+  const ot2 = ot - ot1;
+
+  const regPay = reg * c.baseRate * dayMult;
+  const otPay  = ot1*c.baseRate*c.ot.m1 + ot2*c.baseRate*c.ot.m2;
+
+  let nightHours=0, nightPay=0;
+  if(c.night.enabled){
+    const nm = nightOverlap(s,e,toMin(c.night.start),toMin(c.night.end));
+    nightHours = Math.min(nm, e-s)/60;
+    nightPay = nightHours * c.baseRate * (c.night.pct/100);
+  }
+  const total = regPay+otPay+nightPay;
+  return { hours, reg, ot, regPay, otPay, nightHours, nightPay, total, dayMult, dow };
+}
+
+function fortnightIndex(dateStr,c){
+  const anchor=new Date(c.anchor+"T00:00:00"), d=new Date(dateStr+"T00:00:00");
+  return Math.floor((d-anchor)/(14*86400000));
+}
+function fortnightRange(idx,c){
+  const anchor=new Date(c.anchor+"T00:00:00");
+  const a=new Date(anchor.getTime()+idx*14*86400000);
+  const b=new Date(a.getTime()+13*86400000);
+  const f=x=>x.toISOString().slice(0,10);
+  return {start:f(a),end:f(b)};
+}
+function fmtShort(d){ const x=new Date(d+"T00:00:00"); return x.toLocaleDateString("es",{day:"2-digit",month:"short"}); }
+
+/* ============================ Toast ============================ */
+let toastT;
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1800); }
+
+/* ============================ Registrar ============================ */
+function curEntryFromForm(){
+  return {
+    date: document.getElementById("r_date").value,
+    start: document.getElementById("r_start").value,
+    end: document.getElementById("r_end").value,
+    brk: document.getElementById("r_break").value,
+    holiday: document.getElementById("r_holiday").checked,
+    note: document.getElementById("r_note").value
+  };
+}
+function renderPreview(){
+  const en=curEntryFromForm(); const box=document.getElementById("r_preview");
+  if(!en.date||!en.start||!en.end){ box.innerHTML='<span class="hint">Completa fecha y horas para ver el cálculo…</span>'; return; }
+  const r=calcEntry(en,cfg());
+  box.innerHTML = '<div>Pagarían por este turno: <span class="big">'+money(r.total)+'</span></div>'+
+    '<div class="bd">'+
+      '<span>'+DAY_ES[r.dow]+(en.holiday?" · feriado":"")+' · <b>×'+r.dayMult+'</b></span>'+
+      '<span>Trabajadas: <b>'+hoursFmt(r.hours)+'</b></span>'+
+      '<span>Normales: <b>'+hoursFmt(r.reg)+'</b> = '+money(r.regPay)+'</span>'+
+      (r.ot>0?'<span class="tag gold">Extra: '+hoursFmt(r.ot)+' = '+money(r.otPay)+'</span>':"")+
+      (r.nightPay>0?'<span class="tag violet">Nocturno: +'+money(r.nightPay)+'</span>':"")+
+    '</div>';
+}
+
+/* ============================ Historial ============================ */
+function entriesSorted(){ return [...P().entries].sort((a,b)=> a.date<b.date?1:-1); }
+function renderHistorial(){
+  const mfilter=document.getElementById("h_month").value;
+  const rows=entriesSorted().filter(e=>!mfilter|| e.date.slice(0,7)===mfilter);
+  const t=document.getElementById("h_table");
+  if(!rows.length){ t.innerHTML='<tbody><tr><td colspan="9"><div class="empty">Sin turnos registrados '+(mfilter?"este mes":"")+'. Ve a <b>Registrar</b> ➕</div></td></tr></tbody>'; return; }
+  let body="";
+  for(const e of rows){
+    const r=calcEntry(e,cfg());
+    body+='<tr>'+
+      '<td>'+fmtShort(e.date)+' <span class="hint">'+DAY_ES[r.dow]+'</span> '+(e.holiday?'<span class="tag gold">fer</span>':'')+'</td>'+
+      '<td>'+esc(e.start)+'–'+esc(e.end)+'</td>'+
+      '<td>'+r.hours.toFixed(2)+'</td>'+
+      '<td>×'+r.dayMult+'</td>'+
+      '<td>'+(r.ot>0?'<span class="pos">'+r.ot.toFixed(2)+'</span>':'–')+'</td>'+
+      '<td class="money">'+money(r.regPay+r.nightPay)+'</td>'+
+      '<td class="money">'+(r.otPay>0?money(r.otPay):'–')+'</td>'+
+      '<td class="money"><b>'+money(r.total)+'</b></td>'+
+      '<td><button class="del" data-id="'+esc(e.id)+'" title="Eliminar">✕</button></td>'+
+    '</tr>';
+  }
+  t.innerHTML='<thead><tr><th>Fecha</th><th>Horario</th><th>Horas</th><th>Día</th><th>Extra</th><th>Normal</th><th>Extra $</th><th>Total</th><th></th></tr></thead><tbody>'+body+'</tbody>';
+  t.querySelectorAll(".del").forEach(b=>b.onclick=()=>{ P().entries=P().entries.filter(x=>String(x.id)!=b.dataset.id); save(); renderAll(); toast("Turno eliminado"); });
+}
+
+/* ============================ Dashboard ============================ */
+let charts={};
+function destroyCharts(){ Object.values(charts).forEach(c=>c&&c.destroy()); charts={}; }
+function convDisp(aud){ return curDisplay==="USD"? aud/(cfg().audPerUsd||1):aud; }
+function chartOpts(){
+  return {maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{y:{beginAtZero:true,grid:{color:"#262d38"}},x:{grid:{display:false}}}};
+}
+function renderDashboard(){
+  const c=cfg(); const m=document.getElementById("d_month").value;
+  const ents=P().entries.filter(e=>!m||e.date.slice(0,7)===m);
+  let totHours=0,totPay=0,otHours=0,otPay=0; const days=new Set();
+  const byDay={}, fort={};
+  ents.slice().sort((a,b)=>a.date<b.date?-1:1).forEach(e=>{
+    const r=calcEntry(e,c); totHours+=r.hours; totPay+=r.total; otHours+=r.ot; otPay+=r.otPay; days.add(e.date);
+    byDay[e.date]=(byDay[e.date]||0)+r.hours;
+    const fi=fortnightIndex(e.date,c); fort[fi]=(fort[fi]||0)+r.total;
+  });
+  const kpis=[
+    {label:"Horas trabajadas",value:totHours.toFixed(1)+" h",sub:days.size+" día(s)"},
+    {label:"Ingreso calculado",value:money(totPay),sub:"este mes"},
+    {label:"Horas extra",value:otHours.toFixed(1)+" h",sub:money(otPay)},
+    {label:"Promedio / hora",value: totHours? money(totPay/totHours):"–",sub:"efectivo (con recargos)"},
+  ];
+  document.getElementById("d_kpis").innerHTML=kpis.map(k=>'<div class="card kpi"><div class="label">'+k.label+'</div><div class="value">'+k.value+'</div><div class="sub">'+k.sub+'</div></div>').join("");
+
+  destroyCharts();
+  if(typeof Chart==="undefined"){ return; }
+  Chart.defaults.color="#8b97a6"; Chart.defaults.font.family="-apple-system,Segoe UI,Roboto,sans-serif";
+  Chart.defaults.borderColor="#262d38";
+
+  const fkeys=Object.keys(fort).map(Number).sort((a,b)=>a-b);
+  charts.f=new Chart(document.getElementById("chartFortnight"),{
+    type:"bar",
+    data:{labels:fkeys.map(i=>{const r=fortnightRange(i,c);return fmtShort(r.start)+"–"+fmtShort(r.end);}),
+      datasets:[{label:"Calculado",data:fkeys.map(i=>convDisp(fort[i])),backgroundColor:"#2ec4a6",borderRadius:6}]},
+    options:chartOpts()});
+
+  const dk=Object.keys(byDay).sort();
+  charts.d=new Chart(document.getElementById("chartDays"),{
+    type:"bar",
+    data:{labels:dk.map(fmtShort),datasets:[{label:"Horas",data:dk.map(d=>byDay[d]),backgroundColor:"#3b82f6",borderRadius:6}]},
+    options:chartOpts()});
+
+  let nReg=0,nNight=0;
+  ents.forEach(e=>{const r=calcEntry(e,c); nReg+=r.regPay; nNight+=r.nightPay;});
+  charts.m=new Chart(document.getElementById("chartMix"),{
+    type:"doughnut",
+    data:{labels:["Normal","Extra","Nocturno"],datasets:[{data:[convDisp(nReg),convDisp(otPay),convDisp(nNight)],
+      backgroundColor:["#2ec4a6","#e0b54a","#a371f7"],borderColor:"#161b22",borderWidth:2}]},
+    options:{plugins:{legend:{position:"bottom"}},maintainAspectRatio:false}});
+
+  let acc=0; const accData=dk.map(d=>{ents.filter(e=>e.date===d).forEach(e=>acc+=calcEntry(e,c).total);return convDisp(acc);});
+  charts.c=new Chart(document.getElementById("chartCum"),{
+    type:"line",
+    data:{labels:dk.map(fmtShort),datasets:[{label:"Acumulado",data:accData,borderColor:"#2ec4a6",
+      backgroundColor:"rgba(46,196,166,.15)",fill:true,tension:.3,pointRadius:2}]},
+    options:chartOpts()});
+}
+
+/* ============================ Conciliación ============================ */
+function renderConciliacion(){
+  const c=cfg(); const calc={};
+  P().entries.forEach(e=>{ const fi=fortnightIndex(e.date,c); calc[fi]=(calc[fi]||0)+calcEntry(e,c).total; });
+  const keys=Object.keys(calc).map(Number).sort((a,b)=>b-a);
+  const t=document.getElementById("c_table");
+  if(!keys.length){ t.innerHTML='<tbody><tr><td><div class="empty">Registra turnos para ver tus quincenas.</div></td></tr></tbody>'; return; }
+  let body="";
+  for(const i of keys){
+    const r=fortnightRange(i,c); const calcV=calc[i];
+    const dep=P().deposits[i];
+    const diff = (dep!=null&&dep!=="") ? (Number(dep)-calcV) : null;
+    let estado='<span class="tag muted">pendiente</span>';
+    if(diff!=null) estado = Math.abs(diff)<0.5?'<span class="tag green">OK</span>':(diff<0?'<span class="tag red">te pagaron de menos</span>':'<span class="tag gold">a favor</span>');
+    body+='<tr>'+
+      '<td>'+fmtShort(r.start)+' – '+fmtShort(r.end)+'</td>'+
+      '<td class="money"><b>'+money(calcV)+'</b></td>'+
+      '<td><input type="number" step="0.01" data-dep="'+i+'" value="'+(dep==null?"":dep)+'" placeholder="A$ depositado" style="width:120px;text-align:right"></td>'+
+      '<td class="money '+(diff==null?'':(Math.abs(diff)<0.5?'':(diff<0?'neg':'pos')))+'">'+(diff==null?'–':(diff>=0?'+':'')+money(diff))+'</td>'+
+      '<td>'+estado+'</td>'+
+    '</tr>';
+  }
+  t.innerHTML='<thead><tr><th>Quincena</th><th>Calculado (deberían)</th><th>Depositado (real)</th><th>Diferencia</th><th>Estado</th></tr></thead><tbody>'+body+'</tbody>';
+  t.querySelectorAll("[data-dep]").forEach(inp=>inp.onchange=()=>{ const k=inp.dataset.dep;
+    if(inp.value==="") delete P().deposits[k]; else P().deposits[k]=Number(inp.value); save(); renderConciliacion(); });
+}
+
+/* ============================ Config ============================ */
+function loadConfigForm(){
+  const c=cfg();
+  document.getElementById("cfg_profile_name").textContent=S.activeProfile;
+  document.getElementById("c_base").value=c.baseRate;
+  document.getElementById("c_rate").value=c.audPerUsd;
+  document.getElementById("c_break").value=c.unpaidBreakMin;
+  document.getElementById("c_anchor").value=c.anchor;
+  ["d1","d2","d3","d4","d5","d6","d0"].forEach(k=>document.getElementById("c_"+k).value=c.mult[k]);
+  document.getElementById("c_dh").value=c.holidayMult;
+  document.getElementById("c_otThresh").value=c.ot.thresh;
+  document.getElementById("c_otTier").value=c.ot.tierHours;
+  document.getElementById("c_otM1").value=c.ot.m1;
+  document.getElementById("c_otM2").value=c.ot.m2;
+  document.getElementById("c_nEn").checked=c.night.enabled;
+  document.getElementById("c_nStart").value=c.night.start;
+  document.getElementById("c_nEnd").value=c.night.end;
+  document.getElementById("c_nPct").value=c.night.pct;
+}
+function saveConfigForm(){
+  const c=cfg(); const num=id=>Number(document.getElementById(id).value);
+  c.baseRate=num("c_base"); c.audPerUsd=num("c_rate")||1; c.unpaidBreakMin=num("c_break");
+  c.anchor=document.getElementById("c_anchor").value||c.anchor;
+  ["d1","d2","d3","d4","d5","d6","d0"].forEach(k=>c.mult[k]=num("c_"+k));
+  c.holidayMult=num("c_dh");
+  c.ot={thresh:num("c_otThresh"),tierHours:num("c_otTier"),m1:num("c_otM1"),m2:num("c_otM2")};
+  c.night={enabled:document.getElementById("c_nEn").checked,start:document.getElementById("c_nStart").value,
+    end:document.getElementById("c_nEnd").value,pct:num("c_nPct")};
+  save(); renderAll(); toast("✓ Configuración guardada");
+}
+
+/* ============================ Navegación / init ============================ */
+function renderProfiles(){
+  const sel=document.getElementById("profileSel");
+  sel.innerHTML=Object.keys(S.profiles).map(p=>'<option '+(p===S.activeProfile?"selected":"")+'>'+esc(p)+'</option>').join("");
+}
+function showTab(name){
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));
+  ["registrar","dashboard","historial","conciliacion","config"].forEach(t=>document.getElementById("tab-"+t).hidden=(t!==name));
+  if(name==="dashboard") renderDashboard();
+  if(name==="historial") renderHistorial();
+  if(name==="conciliacion") renderConciliacion();
+  if(name==="config") loadConfigForm();
+}
+function renderAll(){ renderProfiles(); renderPreview(); renderHistorial(); renderConciliacion();
+  const active=document.querySelector("nav.tabs button.active").dataset.tab;
+  if(active==="dashboard") renderDashboard(); if(active==="config") loadConfigForm(); }
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function thisMonth(){ return new Date().toISOString().slice(0,7); }
+
+window.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("r_date").value=todayStr();
+  document.getElementById("d_month").value=thisMonth();
+  document.getElementById("h_month").value=thisMonth();
+  renderProfiles();
+  ["r_date","r_start","r_end","r_break","r_holiday","r_note"].forEach(id=>{
+    document.getElementById(id).addEventListener("input",renderPreview);
+  });
+  renderPreview();
+
+  document.getElementById("tabs").addEventListener("click",e=>{ if(e.target.dataset.tab) showTab(e.target.dataset.tab); });
+  document.getElementById("profileSel").onchange=e=>{ S.activeProfile=e.target.value; save(); renderAll();
+    showTab(document.querySelector("nav.tabs button.active").dataset.tab); };
+
+  document.getElementById("curSeg").addEventListener("click",e=>{
+    if(!e.target.dataset.cur) return; curDisplay=e.target.dataset.cur;
+    document.querySelectorAll("#curSeg button").forEach(b=>b.classList.toggle("active",b.dataset.cur===curDisplay));
+    renderAll(); showTab(document.querySelector("nav.tabs button.active").dataset.tab);
+  });
+
+  document.getElementById("r_today").onclick=()=>{ document.getElementById("r_date").value=todayStr(); renderPreview(); };
+  document.getElementById("r_save").onclick=()=>{
+    const en=curEntryFromForm();
+    if(!en.date||!en.start||!en.end){ toast("⚠️ Falta fecha u horario"); return; }
+    en.id=(Date.now()).toString(36)+Math.floor(performance.now()).toString(36);
+    P().entries.push(en); save(); toast("✓ Turno guardado");
+    document.getElementById("r_note").value=""; document.getElementById("r_holiday").checked=false;
+    renderAll();
+  };
+
+  document.getElementById("d_month").onchange=renderDashboard;
+  document.getElementById("h_month").onchange=renderHistorial;
+  document.getElementById("h_all").onclick=()=>{ document.getElementById("h_month").value=""; renderHistorial(); };
+
+  document.getElementById("c_save").onclick=saveConfigForm;
+
+  document.getElementById("x_export").onclick=()=>{
+    const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download="registro-horas-backup.json"; a.click();
+  };
+  document.getElementById("x_import").onclick=()=>document.getElementById("x_file").click();
+  document.getElementById("x_file").onchange=e=>{
+    const f=e.target.files[0]; if(!f) return; const rd=new FileReader();
+    rd.onload=()=>{ try{ S=JSON.parse(rd.result); save(); renderAll(); showTab("dashboard"); toast("✓ Respaldo importado"); }
+      catch(err){ toast("⚠️ Archivo inválido"); } }; rd.readAsText(f);
+  };
+  document.getElementById("x_reset").onclick=()=>{ if(confirm("¿Borrar TODOS los datos de este dispositivo?")){ S=blankState(); save(); renderAll(); showTab("registrar"); toast("Datos borrados"); } };
+  document.getElementById("x_seed").onclick=()=>{ seedDemo(); save(); renderAll(); showTab("dashboard"); toast("✓ Datos de ejemplo cargados"); };
+
+  // ---- sincronizacion ----
+  document.getElementById("sync_code").value=sync.code||"";
+  document.getElementById("sync_auto").checked=!!sync.auto;
+  if(sync.code) setSyncStatus("Sync activo. Ultima: "+(sync.lastTs?new Date(sync.lastTs).toLocaleString("es"):"-"));
+  document.getElementById("sync_save").onclick=async()=>{
+    const code=document.getElementById("sync_code").value.trim();
+    if(code&&code.length<12){ setSyncStatus("El codigo debe tener al menos 12 caracteres. Usa Generar codigo."); return; }
+    sync.code=code; sync.auto=document.getElementById("sync_auto").checked; saveSync();
+    if(!sync.code){ setSyncStatus("Pon un codigo para activar."); return; }
+    toast("✓ Sync activado"); await cloudPull(false);
+  };
+  document.getElementById("sync_up").onclick=cloudPush;
+  document.getElementById("sync_down").onclick=()=>cloudPull(false);
+  document.getElementById("sync_gen").onclick=()=>{ document.getElementById("sync_code").value=randomCode(); };
+  document.getElementById("sync_auto").onchange=e=>{ sync.auto=e.target.checked; saveSync(); };
+  if(sync.code) cloudPull(true);
+});
+
+function seedDemo(){
+  const p=P(); p.entries=[];
+  const base=new Date(cfg().anchor+"T00:00:00");
+  const plan=[
+    [0,"08:00","17:00",false],[1,"08:00","18:30",false],[2,"08:00","17:00",false],
+    [3,"08:00","17:00",false],[4,"08:00","16:00",false],[5,"09:00","15:00",false],
+    [7,"08:00","17:00",false],[8,"08:00","19:00",false],[9,"08:00","17:00",false],
+    [10,"08:00","17:00",false],[11,"08:00","17:00",false],[12,"09:00","14:00",false]
+  ];
+  plan.forEach((x,i)=>{ const d=new Date(base.getTime()+x[0]*86400000);
+    p.entries.push({id:"demo"+i,date:d.toISOString().slice(0,10),start:x[1],end:x[2],brk:"",holiday:x[3],note:"ejemplo"}); });
+}
+</script>
+</body>
+</html>
