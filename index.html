@@ -388,34 +388,21 @@ td.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
       <label class="f">Meta de ingreso mensual (AUD)<input type="number" id="c_goal" class="inp" step="50" placeholder="0 = sin meta"></label>
     </div>
 
-    <h3 class="lbl">Recargo por tipo de día (×)</h3>
+    <h3 class="lbl">Recargo Super S (madrugada)</h3>
     <div class="fg">
-      <label class="f">Lun<input type="number" id="c_d1" class="inp" step="0.05"></label>
-      <label class="f">Mar<input type="number" id="c_d2" class="inp" step="0.05"></label>
-      <label class="f">Mié<input type="number" id="c_d3" class="inp" step="0.05"></label>
-      <label class="f">Jue<input type="number" id="c_d4" class="inp" step="0.05"></label>
-      <label class="f">Vie<input type="number" id="c_d5" class="inp" step="0.05"></label>
-      <label class="f">Sáb<input type="number" id="c_d6" class="inp" step="0.05"></label>
-      <label class="f">Dom<input type="number" id="c_d0" class="inp" step="0.05"></label>
-      <label class="f">Feriado<input type="number" id="c_dh" class="inp" step="0.05"></label>
+      <label class="f">Recargo (%)<input type="number" id="c_superPct" class="inp" step="1"></label>
+      <label class="f">Si entra antes de<input type="time" id="c_superBefore" class="inp"></label>
     </div>
-    <label class="check" style="margin-top:12px"><input type="checkbox" id="c_autoHol"> Marcar feriados de Australia (NSW) automáticamente</label>
+    <p class="hint" style="margin-top:8px">Si el turno empieza antes de esa hora, TODAS sus horas se pagan con el recargo (antes de 6am → +30% = $41.60).</p>
 
-    <h3 class="lbl">Horas extra</h3>
+    <h3 class="lbl">Horas extra (overtime)</h3>
     <div class="fg">
       <label class="f">A partir de (h/día)<input type="number" id="c_otThresh" class="inp" step="0.5"></label>
-      <label class="f">Primeras N h extra<input type="number" id="c_otTier" class="inp" step="0.5"></label>
-      <label class="f">Mult. 1ª franja<input type="number" id="c_otM1" class="inp" step="0.1"></label>
-      <label class="f">Mult. resto<input type="number" id="c_otM2" class="inp" step="0.1"></label>
+      <label class="f">Mult. normal (×)<input type="number" id="c_otM1" class="inp" step="0.1"></label>
+      <label class="f">Sábado: 1ª franja (h)<input type="number" id="c_satTier" class="inp" step="0.5"></label>
+      <label class="f">Sábado: resto (×)<input type="number" id="c_otM2" class="inp" step="0.1"></label>
     </div>
-
-    <h3 class="lbl">Recargo nocturno</h3>
-    <div class="fg">
-      <label class="check" style="align-self:end"><input type="checkbox" id="c_nEn"> Activar</label>
-      <label class="f">Desde<input type="time" id="c_nStart" class="inp"></label>
-      <label class="f">Hasta<input type="time" id="c_nEnd" class="inp"></label>
-      <label class="f">Recargo (%)<input type="number" id="c_nPct" class="inp" step="1"></label>
-    </div>
+    <p class="hint" style="margin-top:8px">Entre semana lo que pase de 8h se paga ×1.5. Sábados: primeras 3h extra ×1.5 y el resto ×2.</p>
     <div class="btn-row"><button class="btn primary" id="c_save" type="button">Guardar ajustes</button></div>
   </div>
 
@@ -471,17 +458,17 @@ td.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 <script>
 /* ===================== Constantes ===================== */
 const CLOUD={url:"https://bvufwztuchqyfddsquuj.supabase.co",key:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2dWZ3enR1Y2hxeWZkZHNxdXVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNTA4OTcsImV4cCI6MjA5MTgyNjg5N30.b8HvXlvrUGFQp3FiJaq39pCDSvekq-kLda-DCKQy1tg"};
-const KEY="ingresmosKM_v2", SKEY="ingresmosSync_v1", RKEY="ingresmosRun_v1";
+const KEY="ingresmosKM_v5", SKEY="ingresmosSync_v1", RKEY="ingresmosRun_v1";
 const DAY_ES=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const AU_HOL_2026={'2026-01-01':'Año Nuevo','2026-01-26':'Australia Day','2026-04-03':'Good Friday','2026-04-04':'Easter Saturday','2026-04-05':'Easter Sunday','2026-04-06':'Easter Monday','2026-04-25':'Anzac Day','2026-06-08':"King's Birthday",'2026-08-03':'Bank Holiday','2026-10-05':'Labour Day','2026-12-25':'Christmas','2026-12-26':'Boxing Day','2026-12-28':'Boxing Day (obs.)'};
 function holName(d){ return AU_HOL_2026[d]||null; }
 
 /* ===================== Estado ===================== */
 function defaultSettings(base){ return {
-  currency:"AUD", audPerUsd:1.50, baseRate:base, unpaidBreakMin:30, anchor:"2026-06-09",
-  mult:{d1:1,d2:1,d3:1,d4:1,d5:1,d6:1.25,d0:1.5}, holidayMult:2.5,
-  ot:{thresh:8,tierHours:2,m1:1.5,m2:2}, night:{enabled:false,start:"22:00",end:"06:00",pct:15},
-  goalMonthly:0, autoHolidays:true, updatedAt:0
+  currency:"AUD", audPerUsd:1.50, baseRate:base, unpaidBreakMin:30, anchor:"2026-05-22",
+  superBefore:"06:00", superPct:30,
+  otThresh:8, otM1:1.5, otM2:2, satTierHours:3,
+  goalMonthly:0, autoHolidays:false, updatedAt:0
 };}
 function blankState(){ return { v:2, activeProfile:"KM", theme:"auto",
   profiles:{ "KM":{settings:defaultSettings(32),entries:[],depositsV2:{},payments:[]},
@@ -498,7 +485,7 @@ function migrate(st){
   return st;
 }
 let S=load();
-function load(){ try{ const r=localStorage.getItem(KEY); if(r) return migrate(JSON.parse(r)); }catch(e){} return blankState(); }
+function load(){ try{ const r=localStorage.getItem(KEY); if(r) return migrate(JSON.parse(r)); }catch(e){} return seedState(); }
 function persist(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ toast("⚠︎ No se pudo guardar"); } }
 function save(){ persist(); scheduleSync(); }
 function P(){ return S.profiles[S.activeProfile]; }
@@ -527,12 +514,13 @@ function calcEntry(en,c){
   const brk=(en.brk!=null&&en.brk!=="")?Number(en.brk):c.unpaidBreakMin;
   const grossH=(e-s)/60, breakH=Math.min(brk,e-s)/60, hours=Math.max(0,(e-s)-brk)/60;
   const dow=new Date(en.date+"T00:00:00").getDay();
-  const dayMult=en.holiday?c.holidayMult:(c.mult["d"+dow]??1);
-  const reg=Math.min(hours,c.ot.thresh), ot=Math.max(0,hours-c.ot.thresh);
-  const ot1=Math.min(ot,c.ot.tierHours), ot2=ot-ot1;
-  const regPay=reg*c.baseRate*dayMult, otPay=ot1*c.baseRate*c.ot.m1+ot2*c.baseRate*c.ot.m2;
-  let nH=0,nPay=0; if(c.night.enabled){ const nm=nightOverlap(s,e,toMin(c.night.start),toMin(c.night.end)); nH=Math.min(nm,e-s)/60; nPay=nH*c.baseRate*(c.night.pct/100); }
-  return {grossH,breakH,hours,reg,ot,ot1,ot2,regPay,otPay,nightH:nH,nightPay:nPay,total:regPay+otPay+nPay,dayMult,dow};
+  const isSuper = s < toMin(c.superBefore||"06:00");
+  const sp=(c.superPct||0)/100;
+  const rate = c.baseRate*(isSuper?(1+sp):1);
+  const reg=Math.min(hours,c.otThresh), ot=Math.max(0,hours-c.otThresh);
+  let ot1,ot2; if(dow===6){ ot1=Math.min(ot,c.satTierHours); ot2=ot-ot1; } else { ot1=ot; ot2=0; }
+  const regPay=reg*rate, otPay=ot1*c.baseRate*c.otM1+ot2*c.baseRate*c.otM2;
+  return {grossH,breakH,hours,reg,ot,ot1,ot2,regPay,otPay,nightH:0,nightPay:0,total:regPay+otPay,rate,isSuper,dayMult:(isSuper?(1+sp):1),dow};
 }
 function parseD(s){ const a=String(s).split("-"); return Date.UTC(+a[0],(+a[1]||1)-1,+a[2]||1); }
 function ymdU(ms){ const d=new Date(ms); return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0"); }
@@ -613,12 +601,12 @@ function applyHoliday(p){ const g=id=>document.getElementById(p+"_"+id);
 function renderBreakdown(p,boxId){
   const box=document.getElementById(boxId); const en=readForm(p);
   if(!en.date||!en.start||!en.end){ box.innerHTML='<span class="hint">Completa fecha y horas para ver el cálculo…</span>'; return; }
-  const r=calcEntry(en,cfg());
+  const c=cfg(); const r=calcEntry(en,c);
   let rows=`<div><span>${hm(r.grossH)} trabajadas <b>−</b> ${hm(r.breakH)} descanso</span><span class="eq">= ${hm(r.hours)} pagadas</span></div>`;
-  rows+=`<div><span>Normales ${r.reg.toFixed(2)}h × ${money(cfg().baseRate)} × ${r.dayMult}</span><b>${money(r.regPay)}</b></div>`;
-  if(r.ot>0) rows+=`<div><span>Extra ${r.ot.toFixed(2)}h (×${cfg().ot.m1}/×${cfg().ot.m2})</span><b>${money(r.otPay)}</b></div>`;
-  if(r.nightPay>0) rows+=`<div><span>Nocturno ${r.nightH.toFixed(2)}h</span><b>${money(r.nightPay)}</b></div>`;
-  box.innerHTML=`<div class="pv-top"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700">Pago del turno · ${DAY_ES[r.dow]}${en.holiday?" · feriado":""}</div></div>
+  rows+=`<div><span>${r.isSuper?'Super (+'+c.superPct+'%)':'Normal'} ${r.reg.toFixed(2)}h × ${money(r.rate)}</span><b>${money(r.regPay)}</b></div>`;
+  if(r.ot>0){ const lbl=(r.dow===6)?('Extra sábado '+r.ot1.toFixed(2)+'h×'+c.otM1+(r.ot2>0?(' + '+r.ot2.toFixed(2)+'h×'+c.otM2):'')):('Extra '+r.ot.toFixed(2)+'h ×'+c.otM1);
+    rows+=`<div><span>${lbl}</span><b>${money(r.otPay)}</b></div>`; }
+  box.innerHTML=`<div class="pv-top"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700">Pago del turno · ${DAY_ES[r.dow]}${r.isSuper?' · Super S':''}</div></div>
     <div class="pv-amt">${money(r.total)}</div></div><div class="ledger">${rows}</div>`;
 }
 function wireForm(p,boxId){
@@ -803,22 +791,19 @@ function savePayment(){ const f=payForm(); if(!f.date||f.amount===""){ toast("�
 function deletePayment(){ if(!editingPay) return; const p=P().payments.find(x=>String(x.id)===String(editingPay)); if(p){p.deleted=true;p.updatedAt=now();} save(); clearPayForm(); renderIngresos(); toast("Pago eliminado"); }
 
 /* ===================== Ajustes ===================== */
-function loadConfigForm(){ const c=cfg(); const v=(id,val)=>document.getElementById(id).value=val; const ck=(id,val)=>document.getElementById(id).checked=val;
+function loadConfigForm(){ const c=cfg(); const v=(id,val)=>document.getElementById(id).value=val;
   document.getElementById("cfg_name").textContent=S.activeProfile;
   v("c_base",c.baseRate);v("c_rate",c.audPerUsd);v("c_break",c.unpaidBreakMin);v("c_anchor",c.anchor);v("c_goal",c.goalMonthly||"");
-  ["d1","d2","d3","d4","d5","d6","d0"].forEach(kk=>v("c_"+kk,c.mult[kk])); v("c_dh",c.holidayMult);
-  v("c_otThresh",c.ot.thresh);v("c_otTier",c.ot.tierHours);v("c_otM1",c.ot.m1);v("c_otM2",c.ot.m2);
-  ck("c_nEn",c.night.enabled);v("c_nStart",c.night.start);v("c_nEnd",c.night.end);v("c_nPct",c.night.pct);
-  ck("c_autoHol",c.autoHolidays);
+  v("c_superPct",c.superPct);v("c_superBefore",c.superBefore);
+  v("c_otThresh",c.otThresh);v("c_otM1",c.otM1);v("c_satTier",c.satTierHours);v("c_otM2",c.otM2);
   document.querySelectorAll(".chips [data-th]").forEach(b=>b.classList.toggle("on",b.dataset.th===S.theme));
 }
 function saveConfigForm(){ const c=cfg(); const n=id=>Number(document.getElementById(id).value);
   c.baseRate=n("c_base");c.audPerUsd=n("c_rate")||1;c.unpaidBreakMin=n("c_break");c.anchor=document.getElementById("c_anchor").value||c.anchor;
   c.goalMonthly=n("c_goal")||0;
-  ["d1","d2","d3","d4","d5","d6","d0"].forEach(kk=>c.mult[kk]=n("c_"+kk)); c.holidayMult=n("c_dh");
-  c.ot={thresh:n("c_otThresh"),tierHours:n("c_otTier"),m1:n("c_otM1"),m2:n("c_otM2")};
-  c.night={enabled:document.getElementById("c_nEn").checked,start:document.getElementById("c_nStart").value,end:document.getElementById("c_nEnd").value,pct:n("c_nPct")};
-  c.autoHolidays=document.getElementById("c_autoHol").checked; c.updatedAt=now();
+  c.superPct=n("c_superPct");c.superBefore=document.getElementById("c_superBefore").value||"06:00";
+  c.otThresh=n("c_otThresh");c.otM1=n("c_otM1");c.satTierHours=n("c_satTier");c.otM2=n("c_otM2");
+  c.updatedAt=now();
   save(); toast("✓ Ajustes guardados"); renderAll();
 }
 
@@ -883,10 +868,21 @@ function exportCSV(){ const c=cfg(); const rows=[["fecha","entrada","salida","de
   a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="registro-horas-"+S.activeProfile+".csv"; a.click(); }
 
 /* ===================== Datos de ejemplo ===================== */
-function seedDemo(){ const p=P(); p.entries=[]; const base=parseD(cfg().anchor);
-  [[0,"08:00","17:00"],[1,"08:00","18:30"],[2,"08:00","17:00"],[3,"08:00","17:00"],[4,"08:00","16:00"],[5,"09:00","15:00"],[7,"08:00","17:00"],[8,"08:00","19:00"],[9,"08:00","17:00"],[10,"08:00","17:00"],[11,"08:00","17:00"],[12,"09:00","14:00"]]
-  .forEach((x,i)=>{const d=ymdU(base+x[0]*864e5);
-    p.entries.push({id:"demo"+i,date:d,start:x[1],end:x[2],brk:"",holiday:cfg().autoHolidays&&!!holName(d),note:"ejemplo",updatedAt:1});}); }
+function seedState(){ const st=blankState(); const km=st.profiles.KM;
+  const E=(date,start,end,brk)=>km.entries.push({id:"km-"+date+"-"+start.replace(":",""),date,start,end,brk:brk||"",holiday:false,note:"Excel",updatedAt:1});
+  E("2026-04-27","06:00","14:30","");E("2026-04-28","06:00","14:30","");E("2026-04-29","06:00","14:30","");E("2026-04-30","06:00","14:30","");
+  E("2026-05-01","06:00","12:00","0");E("2026-05-05","06:00","14:30","");E("2026-05-06","06:00","14:30","");E("2026-05-07","06:00","15:30","");
+  E("2026-05-08","06:00","12:00","0");E("2026-05-11","06:00","14:30","");E("2026-05-12","06:00","14:30","");E("2026-05-13","06:00","14:30","");E("2026-05-14","06:00","14:30","");E("2026-05-15","06:00","12:00","0");E("2026-05-18","06:00","14:30","");E("2026-05-19","06:00","14:30","");E("2026-05-20","06:00","14:30","");E("2026-05-21","06:00","14:30","");
+  E("2026-05-22","06:00","12:00","0");E("2026-05-25","06:00","14:30","");E("2026-05-26","06:00","14:30","");E("2026-05-27","06:00","14:30","");
+  E("2026-05-28","06:00","14:30","");E("2026-05-29","06:00","12:00","0");E("2026-06-01","02:00","10:30","");E("2026-06-02","02:00","10:30","");
+  E("2026-06-03","06:00","14:30","");E("2026-06-04","02:00","10:30","");
+  E("2026-06-05","06:00","12:00","0");E("2026-06-08","06:00","14:30","");E("2026-06-09","06:00","14:30","");E("2026-06-10","06:00","14:30","");
+  E("2026-06-11","06:00","16:48","");E("2026-06-12","06:00","12:00","0");E("2026-06-15","04:00","11:30","0");E("2026-06-16","03:30","07:00","0");E("2026-06-18","02:00","08:00","0");
+  const PAY=(date,amount)=>km.payments.push({id:"pay-"+date,date,amount,source:"Blackline",tax:null,superA:null,note:"Excel · recibido",updatedAt:1});
+  PAY("2026-05-07",2008);PAY("2026-05-21",2432);PAY("2026-06-04",2585.60);PAY("2026-06-18",2199.00);
+  return st;
+}
+function seedDemo(){ S=seedState(); }
 
 /* ===================== Init ===================== */
 window.addEventListener("DOMContentLoaded",()=>{
