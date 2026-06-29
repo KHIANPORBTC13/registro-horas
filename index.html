@@ -11,7 +11,7 @@
 <title>Registro de Horas · KM & Ayleen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0c0f14; --bg2:#0f141b; --surface:#161b23; --surface2:#1d232d; --raise:#222a35;
@@ -19,7 +19,7 @@
   --ink:#f2ede3; --muted:#9aa3b2; --faint:#6b7484;
   --gold:#e7bc54; --gold-deep:#caa23f; --gold-glow:rgba(231,188,84,.16);
   --jade:#46c79f; --slate:#7aa0e6; --terra:#e8715b; --rose:#e8715b;
-  --display:"Fraunces",Georgia,serif; --body:"Hanken Grotesk",-apple-system,system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --display:"Plus Jakarta Sans",-apple-system,system-ui,sans-serif; --body:"Plus Jakarta Sans",-apple-system,system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
   --r:18px; --r-sm:12px; --r-lg:26px;
   --sh:0 10px 30px -12px rgba(0,0,0,.55); --sh-lg:0 26px 60px -22px rgba(0,0,0,.7);
   --ease:cubic-bezier(.22,.61,.36,1);
@@ -347,6 +347,10 @@ td.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
     <div class="card"><h2 class="sec">Ingreso por fuente</h2><div class="chartbox"><canvas id="chInSrc"></canvas></div></div>
   </div>
   <div class="card" style="margin-top:16px"><h2 class="sec">Acumulado recibido (año)</h2><div class="chartbox"><canvas id="chInCum"></canvas></div></div>
+  <div class="two" style="margin-top:16px">
+    <div class="card"><h2 class="sec">Composición por quincena</h2><div class="chartbox"><canvas id="chInComp"></canvas></div></div>
+    <div class="card"><h2 class="sec">Diferencia por quincena (te deben)</h2><div class="chartbox"><canvas id="chInDiff"></canvas></div></div>
+  </div>
 
   <div class="card">
     <h2 class="sec">Registrar pago recibido</h2>
@@ -358,8 +362,11 @@ td.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
       <label class="f">Impuesto retenido (opc.)<input type="number" class="inp" id="pay_tax" step="0.01" placeholder="0.00"></label>
       <label class="f">Super (opc.)<input type="number" class="inp" id="pay_super" step="0.01" placeholder="0.00"></label>
       <label class="f">Nota<input type="text" class="inp" id="pay_note" placeholder="opcional"></label>
+      <label class="f" style="grid-column:1/-1">Comprobante de pago (PDF o imagen) — respaldo<input type="file" class="inp" id="pay_file" accept="image/*,application/pdf" style="padding:8px 12px"></label>
     </div>
+    <div id="pay_fileInfo" class="hint" style="margin-top:8px;min-height:18px"></div>
     <div class="btn-row"><button class="btn primary" id="pay_save" type="button">Agregar pago</button>
+      <button class="btn ghost" id="pay_ocr" type="button" hidden>📷 Leer monto</button>
       <button class="btn danger" id="pay_del" type="button" hidden>Eliminar</button>
       <button class="btn ghost" id="pay_cancel" type="button" hidden>Cancelar</button></div>
   </div>
@@ -710,7 +717,7 @@ function renderHistorial(){
 /* ===================== Ingresos (centro) ===================== */
 function paymentsList(){ return (P().payments||[]).filter(p=>!p.deleted); }
 function receivedByF(){ const c=cfg(),m={}; paymentsList().forEach(p=>{const i=fIdx(p.date,c);m[i]=(m[i]||0)+Number(p.amount||0);}); return m; }
-let inPeriod="year", editingPay=null;
+let inPeriod="year", editingPay=null, payFile=null;
 function renderIngresos(){
   const c=cfg(), y=String(new Date().getFullYear()), mo=thisMonth();
   const inPer=paymentsList().filter(p=> inPeriod==="all"?true : inPeriod==="year"? p.date.slice(0,4)===y : p.date.slice(0,7)===mo);
@@ -736,18 +743,21 @@ function renderIngresos(){
   if(owed>0.5) html+=ins("warn","⚠︎",`<b>Te deben ${money(owed)} en total.</b><small>Quincenas donde recibiste menos de lo calculado.</small>`);
   if(nF>0){ html+=ins("info","📈",`<b>Run-rate anual: ${money((totRec/nF)*26)}</b><small>Proyección a 26 quincenas al ritmo recibido.</small>`); }
   if(hrsPer>0){ const real=totRec/hrsPer,d=real-c.baseRate; html+=ins(d>=0?"good":"info",d>=0?"✓":"◎",`<b>Tu hora real vale ${money(real)}</b><small>${d>=0?"Por encima":"Por debajo"} de la nominal (${money(c.baseRate)}) por recargos, extras o retenciones.</small>`); }
-  if(!paymentsList().length) html=ins("info","✶","<b>Aún no registras pagos.</b><small>Agrega tu primer depósito abajo.</small>");
+  {const pd=Object.keys(recF).filter(i=>calcByF[i]!=null);if(pd.length){let okc=0,worst=null;pd.forEach(i=>{const dd=recF[i]-calcByF[i];if(Math.abs(dd)<0.5)okc++;if(dd<-0.5&&(!worst||dd<worst.d))worst={i,d:dd};});const pc=Math.round(okc/pd.length*100);html+=ins(pc>=80?"good":"warn",pc>=80?"✓":"⚠︎",`<b>Precisión de pago: ${pc}%</b><small>${okc} de ${pd.length} quincenas pagadas correctas.</small>`);if(worst){const wr=fRange(Number(worst.i),c);html+=ins("warn","🔻",`<b>Mayor déficit: ${fmtShort(wr.start)}</b><small>Te faltaron ${money(-worst.d)} esa quincena — revisa el comprobante.</small>`);}}}
+  if(!paymentsList().length) html=ins("info","✶","<b>Aún no registras pagos.</b><small>Agrega tu primer depósito y su comprobante abajo.</small>");
   document.getElementById("in_insights").innerHTML=html;
   renderIncomeCharts(c,calcByF,recF,y); renderCompare(c,calcByF,recF); renderPaymentsTable();
 }
 function renderIncomeCharts(c,calcByF,recF,y){
-  ["inF","inS","inC"].forEach(k=>{if(charts[k]){try{charts[k].destroy();}catch(e){}delete charts[k];}});
+  ["inF","inS","inC","inComp","inDiff"].forEach(k=>{if(charts[k]){try{charts[k].destroy();}catch(e){}delete charts[k];}});
   if(typeof Chart==="undefined") return;
   Chart.defaults.color=cssVar("--muted"); Chart.defaults.borderColor=cssVar("--line-soft");
   const GOLD=cssVar("--gold"),SLATE=cssVar("--slate"),JADE=cssVar("--jade"),TERRA=cssVar("--terra");
   const ax={maintainAspectRatio:false,scales:{y:{beginAtZero:true,grid:{color:cssVar("--line-soft")}},x:{grid:{display:false}}}};
-  const keys=[...new Set([...Object.keys(calcByF),...Object.keys(recF)])].map(Number).sort((a,b)=>a-b);
-  charts.inF=new Chart(document.getElementById("chInFort"),{data:{labels:keys.map(i=>fmtShort(fRange(i,c).start)),datasets:[
+  const agg={}; liveEntries().forEach(e=>{const i=fIdx(e.date,c);const r=calcEntry(e,c);const a=agg[i]||(agg[i]={nor:0,sup:0,ext:0});if(r.isSuper)a.sup+=r.regPay;else a.nor+=r.regPay;a.ext+=r.otPay;});
+  const keys=[...new Set([...Object.keys(calcByF),...Object.keys(recF),...Object.keys(agg)])].map(Number).sort((a,b)=>a-b);
+  const labs=keys.map(i=>fmtShort(fRange(i,c).start));
+  charts.inF=new Chart(document.getElementById("chInFort"),{data:{labels:labs,datasets:[
     {type:"bar",label:"Recibido",data:keys.map(i=>conv(recF[i]||0)),backgroundColor:JADE,borderRadius:6},
     {type:"line",label:"Calculado",data:keys.map(i=>conv(calcByF[i]||0)),borderColor:GOLD,backgroundColor:"transparent",tension:.3,pointRadius:3}]},
     options:Object.assign({plugins:{legend:{position:"bottom"}}},ax)});
@@ -756,37 +766,66 @@ function renderIncomeCharts(c,calcByF,recF,y){
   const yp=paymentsList().filter(p=>p.date.slice(0,4)===y).sort((a,b)=>a.date<b.date?-1:1);
   let acc=0; const L=[],D=[]; yp.forEach(p=>{acc+=Number(p.amount||0);L.push(fmtShort(p.date));D.push(conv(acc));});
   charts.inC=new Chart(document.getElementById("chInCum"),{type:"line",data:{labels:L,datasets:[{data:D,borderColor:JADE,backgroundColor:"rgba(70,199,159,.14)",fill:true,tension:.35,pointRadius:2}]},options:Object.assign({plugins:{legend:{display:false}}},ax)});
+  const stk={maintainAspectRatio:false,plugins:{legend:{position:"bottom"}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,grid:{color:cssVar("--line-soft")}}}};
+  charts.inComp=new Chart(document.getElementById("chInComp"),{type:"bar",data:{labels:labs,datasets:[
+    {label:"Normal",data:keys.map(i=>conv((agg[i]||{}).nor||0)),backgroundColor:SLATE,borderRadius:4},
+    {label:"Super",data:keys.map(i=>conv((agg[i]||{}).sup||0)),backgroundColor:GOLD,borderRadius:4},
+    {label:"Extra",data:keys.map(i=>conv((agg[i]||{}).ext||0)),backgroundColor:JADE,borderRadius:4}]},options:stk});
+  const diffs=keys.map(i=>{const rv=recF[i];return rv!=null?conv(rv-(calcByF[i]||0)):0;});
+  charts.inDiff=new Chart(document.getElementById("chInDiff"),{type:"bar",data:{labels:labs,datasets:[{data:diffs,backgroundColor:diffs.map(d=>d<-0.5?TERRA:(d>0.5?JADE:SLATE)),borderRadius:6}]},options:Object.assign({plugins:{legend:{display:false}}},ax)});
 }
 function renderCompare(c,calcByF,recF){
-  const keys=[...new Set([...Object.keys(calcByF),...Object.keys(recF)])].map(Number).sort((a,b)=>b-a); const t=document.getElementById("c_table");
-  if(!keys.length){ t.innerHTML=`<tbody><tr><td><div class="empty">Sin datos todavía.</div></td></tr></tbody>`; return; }
-  let b=""; for(const i of keys){ const r=fRange(i,c),cv=calcByF[i]||0,rv=recF[i];
-    const diff=(rv!=null)?rv-cv:null; let st='<span class="badge muted">sin pago</span>';
-    if(diff!=null){ if(Math.abs(diff)<0.5)st='<span class="badge jade">OK</span>'; else if(diff<0)st='<span class="badge terra">menos</span>'; else st='<span class="badge gold">a favor</span>'; }
-    b+=`<tr><td>${fmtShort(r.start)}–${fmtShort(r.end)}</td><td class="amt">${money(cv)}</td><td class="amt ${rv!=null?'pos':''}">${rv!=null?money(rv):'·'}</td>
-      <td class="amt ${diff==null?'':(Math.abs(diff)<0.5?'':(diff<0?'neg':'pos'))}">${diff==null?'·':(diff>=0?'+':'')+money(diff)}</td><td>${st}</td></tr>`; }
-  t.innerHTML=`<thead><tr><th>Quincena</th><th>Calculado</th><th>Recibido</th><th>Dif.</th><th>Estado</th></tr></thead><tbody>${b}</tbody>`;
+  const agg={}; liveEntries().forEach(e=>{const i=fIdx(e.date,c);const r=calcEntry(e,c);const a=agg[i]||(agg[i]={h:0,nor:0,sup:0,ext:0,teo:0});a.h+=r.hours;a.ext+=r.otPay;a.teo+=r.total;if(r.isSuper)a.sup+=r.regPay;else a.nor+=r.regPay;});
+  for(const i in recF){ if(!agg[i]) agg[i]={h:0,nor:0,sup:0,ext:0,teo:0}; }
+  const t=document.getElementById("c_table"); const asc=Object.keys(agg).map(Number).sort((a,b)=>a-b);
+  if(!asc.length){ t.innerHTML=`<tbody><tr><td><div class="empty">Sin datos todavía.</div></td></tr></tbody>`; return; }
+  const qn={}; asc.forEach((k,i)=>qn[k]="Q"+(i+1));
+  let b="",T={h:0,nor:0,sup:0,ext:0,teo:0,rec:0};
+  for(const i of asc){ const r=fRange(i,c),a=agg[i],rv=recF[i];
+    const diff=(rv!=null)?rv-a.teo:null, tasa=(a.h>0&&rv!=null)?rv/a.h:null;
+    const hasFile=paymentsList().some(p=>fIdx(p.date,c)===i&&p.file);
+    T.h+=a.h;T.nor+=a.nor;T.sup+=a.sup;T.ext+=a.ext;T.teo+=a.teo;if(rv!=null)T.rec+=rv;
+    b+=`<tr><td><b>${qn[i]}</b></td><td style="color:var(--muted);white-space:nowrap">${fmtShort(r.start)} – ${fmtShort(r.end)}</td>
+    <td class="num">${a.h.toFixed(1)}</td><td class="amt">${money(a.nor)}</td><td class="amt">${money(a.sup)}</td>
+    <td class="amt ${a.ext>0?'pos':''}">${a.ext>0?money(a.ext):'·'}</td><td class="amt">${money(a.teo)}</td>
+    <td class="amt ${rv!=null?'gld':''}">${rv!=null?money(rv):'·'}</td>
+    <td class="amt ${diff==null?'':(Math.abs(diff)<0.5?'':(diff<0?'neg':'pos'))}">${diff==null?'·':(diff>=0?'+':'')+money(diff)}</td>
+    <td class="num">${tasa!=null?money(tasa):'·'}</td>
+    <td style="text-align:center">${hasFile?'📎':'<span style="color:var(--faint)">—</span>'}</td></tr>`; }
+  const Td=T.rec-T.teo, Tt=T.h>0?T.rec/T.h:0;
+  const tot=`<tr style="background:var(--surface2);font-weight:700"><td><b>TOTAL</b></td><td></td><td class="num">${T.h.toFixed(1)}</td><td class="amt">${money(T.nor)}</td><td class="amt">${money(T.sup)}</td><td class="amt">${money(T.ext)}</td><td class="amt gld">${money(T.teo)}</td><td class="amt gld">${money(T.rec)}</td><td class="amt ${Td<0?'neg':'pos'}">${(Td>=0?'+':'')+money(Td)}</td><td class="num">${money(Tt)}</td><td></td></tr>`;
+  t.innerHTML=`<thead><tr><th>Quincena</th><th>Periodo</th><th>Horas</th><th>$ Normal</th><th>$ Super</th><th>$ Extra</th><th>Teórico</th><th>Recibido</th><th>Diferencia</th><th>Tasa $/h</th><th>Comprob.</th></tr></thead><tbody>${b}${tot}</tbody>`;
 }
 function renderPaymentsTable(){
-  const rows=paymentsList().sort((a,b)=>a.date<b.date?1:-1); const t=document.getElementById("pay_table");
+  const c=cfg(); const rows=paymentsList().sort((a,b)=>a.date<b.date?1:-1); const t=document.getElementById("pay_table");
   if(!rows.length){ t.innerHTML=`<tbody><tr><td><div class="empty">Sin pagos registrados.</div></td></tr></tbody>`; return; }
-  let b=""; for(const p of rows){ b+=`<tr data-pid="${esc(p.id)}"><td>${fmtShort(p.date)}</td><td>${esc(p.source||"—")}</td>
-    <td class="amt gld">${money(Number(p.amount||0))}</td><td class="amt">${p.tax?money(Number(p.tax)):'·'}</td><td style="color:var(--faint)">${esc(p.note||"")}</td></tr>`; }
-  t.innerHTML=`<thead><tr><th>Fecha</th><th>Fuente</th><th>Monto</th><th>Impuesto</th><th>Nota</th></tr></thead><tbody>${b}</tbody>`;
+  let b=""; for(const p of rows){
+    b+=`<tr data-pid="${esc(p.id)}"><td>${fmtShort(p.date)}</td><td>${esc(p.source||"—")}</td>
+    <td class="amt gld">${money(Number(p.amount||0))}</td><td class="amt">${p.tax?money(Number(p.tax)):'·'}</td>
+    <td style="text-align:center">${p.file?`<a href="#" class="rcpt" data-rid="${esc(p.id)}" style="color:var(--gold);text-decoration:none;font-weight:600">📎 ver</a>`:'<span style="color:var(--faint)">—</span>'}</td>
+    <td style="color:var(--faint)">${esc(p.note||"")}</td></tr>`; }
+  t.innerHTML=`<thead><tr><th>Fecha</th><th>Fuente</th><th>Monto</th><th>Impuesto</th><th>Comprob.</th><th>Nota</th></tr></thead><tbody>${b}</tbody>`;
+  t.querySelectorAll(".rcpt").forEach(a=>a.onclick=ev=>{ev.preventDefault();ev.stopPropagation();const p=paymentsList().find(x=>String(x.id)===a.dataset.rid);if(p&&p.file)openData(p.file);});
   t.querySelectorAll("tbody tr[data-pid]").forEach(tr=>tr.onclick=()=>loadPayment(tr.dataset.pid));
 }
 function payForm(){ const g=id=>document.getElementById("pay_"+id);
   return {date:g("date").value,amount:g("amount").value,source:g("source").value,tax:g("tax").value,superA:g("super").value,note:g("note").value}; }
-function clearPayForm(){ ["amount","tax","super","note"].forEach(k=>document.getElementById("pay_"+k).value=""); document.getElementById("pay_date").value=todayStr();
+function compressImg(file,cb){const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const mx=1200;let w=im.width,h=im.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}const cv=document.createElement("canvas");cv.width=w;cv.height=h;cv.getContext("2d").drawImage(im,0,0,w,h);cb(cv.toDataURL("image/jpeg",0.72));};im.onerror=()=>cb(fr.result);im.src=fr.result;};fr.readAsDataURL(file);}
+function openData(d){try{fetch(d).then(r=>r.blob()).then(b=>window.open(URL.createObjectURL(b),"_blank"));}catch(e){const a=document.createElement("a");a.href=d;a.target="_blank";a.click();}}
+function showPayFile(){const el=document.getElementById("pay_fileInfo");if(!el)return;if(payFile){const kb=Math.round((payFile.data.length*0.75)/1024);el.innerHTML='📎 <b>'+esc(payFile.name)+'</b> ('+kb+' KB) · <a href="#" id="pay_fileView" style="color:var(--gold)">ver</a> · <a href="#" id="pay_fileRm" style="color:var(--terra)">quitar</a>';document.getElementById("pay_fileView").onclick=ev=>{ev.preventDefault();openData(payFile.data);};document.getElementById("pay_fileRm").onclick=ev=>{ev.preventDefault();payFile=null;document.getElementById("pay_file").value="";document.getElementById("pay_ocr").hidden=true;showPayFile();};}else el.innerHTML="";}
+function onPayFile(e){const f=e.target.files[0];if(!f)return;const isImg=f.type.startsWith("image/");if(isImg){compressImg(f,d=>{payFile={data:d,name:f.name,type:"image/jpeg"};showPayFile();document.getElementById("pay_ocr").hidden=false;});}else{if(f.size>5*1024*1024){toast("⚠︎ Archivo muy grande (>5MB)");return;}const fr=new FileReader();fr.onload=()=>{payFile={data:fr.result,name:f.name,type:f.type};showPayFile();document.getElementById("pay_ocr").hidden=true;};fr.readAsDataURL(f);}}
+function ocrAmount(){if(!payFile||!payFile.type.startsWith("image/")){toast("OCR solo para imágenes");return;}const el=document.getElementById("pay_fileInfo");el.textContent="🔎 Leyendo comprobante… (unos segundos)";const run=()=>Tesseract.recognize(payFile.data,"eng").then(({data})=>{const t=data.text;let amt=null;for(const ln of t.split(/\n/)){if(/net|paid|total|deposit|pago|neto/i.test(ln)){const m=ln.match(/(\d{1,3}(?:[,\s]\d{3})*\.\d{2})/);if(m){amt=parseFloat(m[1].replace(/[,\s]/g,""));break;}}}if(amt==null){const all=[...t.matchAll(/(\d{1,3}(?:[,\s]\d{3})*\.\d{2})/g)].map(m=>parseFloat(m[1].replace(/[,\s]/g,"")));if(all.length)amt=Math.max(...all);}if(amt!=null){document.getElementById("pay_amount").value=amt.toFixed(2);showPayFile();toast("Monto sugerido: "+amt.toFixed(2)+" · verifica");}else{showPayFile();toast("No se detectó monto; ingrésalo manual");}}).catch(()=>{showPayFile();toast("OCR falló; ingresa manual");});if(window.Tesseract)run();else{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";s.onload=run;s.onerror=()=>{showPayFile();toast("No se pudo cargar OCR (sin internet?)");};document.head.appendChild(s);}}
+function clearPayForm(){ ["amount","tax","super","note"].forEach(k=>document.getElementById("pay_"+k).value=""); document.getElementById("pay_date").value=todayStr(); document.getElementById("pay_file").value=""; payFile=null; showPayFile(); document.getElementById("pay_ocr").hidden=true;
   editingPay=null; document.getElementById("pay_save").textContent="Agregar pago"; document.getElementById("pay_del").hidden=true; document.getElementById("pay_cancel").hidden=true; }
 function loadPayment(id){ const p=(P().payments||[]).find(x=>String(x.id)===String(id)); if(!p) return; editingPay=id; const g=k=>document.getElementById("pay_"+k);
   g("date").value=p.date; g("amount").value=p.amount; g("source").value=p.source||"Blackline"; g("tax").value=p.tax||""; g("super").value=p.superA||""; g("note").value=p.note||"";
+  payFile=p.file?{data:p.file,name:p.fileName||"comprobante",type:p.fileType||"image/jpeg"}:null; document.getElementById("pay_file").value=""; showPayFile(); document.getElementById("pay_ocr").hidden=!(payFile&&payFile.type.startsWith("image/"));
   document.getElementById("pay_save").textContent="Guardar cambios"; document.getElementById("pay_del").hidden=false; document.getElementById("pay_cancel").hidden=false;
   document.getElementById("tab-ingresos").scrollIntoView({behavior:"smooth",block:"start"}); toast("Editando pago"); }
 function savePayment(){ const f=payForm(); if(!f.date||f.amount===""){ toast("⚠︎ Pon fecha y monto"); return; }
-  if(!P().payments) P().payments=[]; const data={date:f.date,amount:Number(f.amount),source:f.source,tax:f.tax!==""?Number(f.tax):null,superA:f.superA!==""?Number(f.superA):null,note:f.note,updatedAt:now()};
-  if(editingPay){ const p=P().payments.find(x=>String(x.id)===String(editingPay)); if(p) Object.assign(p,data); toast("✓ Pago actualizado"); }
-  else { P().payments.push(Object.assign({id:Date.now().toString(36)+Math.floor(performance.now()).toString(36)},data)); toast("✓ Pago agregado"); }
+  if(!P().payments) P().payments=[]; const data={date:f.date,amount:Number(f.amount),source:f.source,tax:f.tax!==""?Number(f.tax):null,superA:f.superA!==""?Number(f.superA):null,note:f.note,file:payFile?payFile.data:null,fileName:payFile?payFile.name:null,fileType:payFile?payFile.type:null,updatedAt:now()};
+  if(editingPay){ const p=P().payments.find(x=>String(x.id)===String(editingPay)); if(p){ if(!payFile){data.file=p.file||null;data.fileName=p.fileName||null;data.fileType=p.fileType||null;} Object.assign(p,data);} toast("✓ Pago actualizado"); }
+  else { P().payments.push(Object.assign({id:Date.now().toString(36)+Math.floor(performance.now()).toString(36)},data)); toast(payFile?"✓ Pago + comprobante guardado":"✓ Pago agregado"); }
   save(); clearPayForm(); renderIngresos(); }
 function deletePayment(){ if(!editingPay) return; const p=P().payments.find(x=>String(x.id)===String(editingPay)); if(p){p.deleted=true;p.updatedAt=now();} save(); clearPayForm(); renderIngresos(); toast("Pago eliminado"); }
 
@@ -922,6 +961,8 @@ window.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("pay_save").onclick=savePayment;
   document.getElementById("pay_del").onclick=deletePayment;
   document.getElementById("pay_cancel").onclick=clearPayForm;
+  document.getElementById("pay_file").onchange=onPayFile;
+  document.getElementById("pay_ocr").onclick=ocrAmount;
   document.getElementById("in_period").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b||!b.dataset.per)return; inPeriod=b.dataset.per; document.querySelectorAll("#in_period button").forEach(x=>x.classList.toggle("on",x.dataset.per===inPeriod)); renderIngresos();});
 
   // edición
