@@ -432,6 +432,12 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
 
   <div class="block-h"><span class="sec-n">01</span><h2 class="sec">Tu hora vale</h2></div>
   <div class="card intel" id="rateCard"><div id="rateHero"></div></div>
+  <div class="card" id="psCard" style="margin-top:16px" hidden>
+    <h2 class="sec">Detalle de payslips</h2>
+    <p class="sub" style="margin:2px 0 14px">Cada quincena desglosada tal como viene en tu recibo.</p>
+    <div class="tscroll"><table id="psTable"></table></div>
+    <div id="psExtra" style="margin-top:14px"></div>
+  </div>
   <div class="card" id="jobBreakCard" style="margin-top:16px" hidden><h2 class="sec">Por trabajo</h2>
     <p class="sub" style="margin:2px 0 14px">Cuánto aporta cada empleo, según tus turnos registrados.</p>
     <div id="jobBreak"></div></div>
@@ -458,7 +464,7 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
     <div class="fg">
       <label class="f">Fecha del depósito<input type="date" class="inp" id="pay_date"></label>
       <label class="f">Monto recibido (AUD)<input type="number" class="inp" id="pay_amount" step="0.01" placeholder="0.00"></label>
-      <label class="f">Fuente<select class="inp" id="pay_source"><option>Blackline</option><option>Green &amp; Clean</option><option>Comfort Inn</option><option>ABN</option><option>Bono</option><option>Otro</option></select></label>
+      <label class="f">Fuente<select class="inp" id="pay_source"><option>Blackline</option><option>Green &amp; Clean</option><option>Comfort Inn</option><option>TBM</option><option>ABN</option><option>Bono</option><option>Otro</option></select></label>
       <label class="f">Impuesto retenido (opc.)<input type="number" class="inp" id="pay_tax" step="0.01" placeholder="0.00"></label>
       <label class="f">Super (opc.)<input type="number" class="inp" id="pay_super" step="0.01" placeholder="0.00"></label>
       <label class="f">Nota<input type="text" class="inp" id="pay_note" placeholder="opcional"></label>
@@ -628,7 +634,7 @@ function jobRules(c,job){ const js=c&&c.jobs; if(!js) return c;
   return j?Object.assign({},c,j):c; }
 function jobNames(){ const c=cfg(); return Object.keys(c.jobs||{}); }
 function jobOf(e){ const c=cfg(); return (e&&e.job&&(c.jobs||{})[e.job])?e.job:(c.defaultJob||jobNames()[0]||"Trabajo"); }
-function ayleenJobs(){ return {"Comfort Inn":jobPlain(33.85,1.2,1.4),"ABN":jobPlain(30)}; }
+function ayleenJobs(){ return {"Comfort Inn":jobPlain(33.85,1.2,1.4),"TBM":jobPlain(33.85)}; }
 function blankState(){ const ay=defaultSettings(33.85); ay.jobs=ayleenJobs(); ay.defaultJob="Comfort Inn";
   return { v:2, activeProfile:"KM", theme:"auto",
   profiles:{ "KM":{settings:defaultSettings(32),entries:[],depositsV2:{},payments:[]},
@@ -661,13 +667,44 @@ let S=load();
   if(n){ localStorage.setItem(KEY,JSON.stringify(S)); }
 }catch(e){} })();
 (function ensureAyleen(){ try{ const p=S.profiles&&S.profiles.Ayleen; if(!p) return;
-  p.payments=p.payments||[]; const have=new Set(p.payments.map(x=>String(x.id))); let n=0;
-  const PS=[["ay-ps-11774","2026-06-10",1242.34,132,164.92,"Payslip EFT 11774 · 27 may–09 jun · 39.32h · bruto $1,374.34"],
-            ["ay-ps-11807","2026-06-24",1319.41,150,176.33,"Payslip EFT 11807 · 10–23 jun · 42.41h · bruto $1,469.41"],
-            ["ay-ps-11931","2026-07-22",1600.86,216,218.02,"Payslip EFT 11931 · 08–21 jul · 47.91h · bruto $1,816.86"]];
-  PS.forEach(r=>{ if(!have.has(r[0])){ p.payments.push({id:r[0],date:r[1],amount:r[2],source:"Comfort Inn",tax:r[3],superA:r[4],note:r[5],updatedAt:Date.now()}); n++; } });
-  if(!have.has("ay-abn-1069")){ p.payments.push({id:"ay-abn-1069",date:"2026-07-22",amount:693,source:"ABN",tax:null,superA:null,note:"Factura 1069 · 21h × $30 + GST $63 · reservar $126 (20%) para impuesto · ajusta la fecha si difiere",updatedAt:Date.now()}); n++; }
-  if(n) localStorage.setItem(KEY,JSON.stringify(S));
+  p.payments=p.payments||[]; let ch=0;
+  const PS=[
+   {id:"ay-ps-11774",date:"2026-06-10",ref:"EFT 11774",p0:"2026-05-27",p1:"2026-06-09",
+    lines:[["Domingo ×1.4",5.91,45.24,267.37],["Lunes a Viernes ×1.0",29.16,32.31,942.16],["Sábado ×1.2",4.25,38.78,164.82]],
+    hours:39.32,gross:1374.34,tax:132,net:1242.34,superA:164.92},
+   {id:"ay-ps-11807",date:"2026-06-24",ref:"EFT 11807",p0:"2026-06-10",p1:"2026-06-23",
+    lines:[["Domingo ×1.4",4.5,45.24,203.58],["Lunes a Viernes ×1.0",31.58,32.31,1020.35],["Sábado ×1.2",6.33,38.78,245.48]],
+    hours:42.41,gross:1469.41,tax:150,net:1319.41,superA:176.33},
+   {id:"ay-ps-11931",date:"2026-07-22",ref:"EFT 11931",p0:"2026-07-08",p1:"2026-07-21",
+    lines:[["Domingo ×1.4",11.16,47.39,528.87],["Lunes a Viernes ×1.0",30.25,33.85,1023.96],["Sábado ×1.2",6.5,40.62,264.03]],
+    hours:47.91,gross:1816.86,tax:216,net:1600.86,superA:218.02}];
+  PS.forEach(r=>{ const det={ref:r.ref,p0:r.p0,p1:r.p1,lines:r.lines,hours:r.hours,gross:r.gross,net:r.net};
+    let ex=p.payments.find(x=>String(x.id)===r.id);
+    if(!ex){ p.payments.push({id:r.id,date:r.date,amount:r.net,source:"Comfort Inn",tax:r.tax,superA:r.superA,
+      note:"Payslip "+r.ref+" · "+r.p0+" a "+r.p1+" · "+r.hours+"h · bruto $"+r.gross.toFixed(2),detail:det,updatedAt:Date.now()}); ch++; }
+    else if(!ex.detail){ ex.detail=det; ex.tax=ex.tax!=null?ex.tax:r.tax; ex.superA=ex.superA!=null?ex.superA:r.superA; ex.updatedAt=Date.now(); ch++; } });
+  const abn={id:"ay-abn-1069",date:"2026-07-22",amount:693,source:"ABN",
+    note:"Factura 1069 · 08–21 jul · 21h × $30 = $630 + GST $63 · aparta $126 (20%) para impuesto → disponible $504",
+    abn:{hours:21,rate:30,sub:630,gst:63,reserve:126,avail:504,p0:"2026-07-08",p1:"2026-07-21"}};
+  let ea=p.payments.find(x=>String(x.id)===abn.id);
+  if(!ea){ p.payments.push(Object.assign({tax:null,superA:null,updatedAt:Date.now()},abn)); ch++; }
+  else if(!ea.abn){ ea.abn=abn.abn; ea.note=abn.note; ea.updatedAt=Date.now(); ch++; }
+  if(ch) localStorage.setItem(KEY,JSON.stringify(S));
+}catch(e){} })();
+/* Normaliza los trabajos de cada perfil una sola vez: Ayleen solo Comfort Inn (+TBM casual); ambos con TBM */
+(function ensureJobs(){ try{ let ch=0;
+  const ay=S.profiles&&S.profiles.Ayleen;
+  if(ay&&ay.settings&&!ay.settings.jobsFix2){ const j=ay.settings.jobs||{};
+    delete j["Blackline"]; delete j["Green & Clean"];
+    if(!j["Comfort Inn"]) j["Comfort Inn"]=jobPlain(33.85,1.2,1.4);
+    if(!j["TBM"]) j["TBM"]=jobPlain(33.85);
+    ay.settings.jobs=j; ay.settings.defaultJob="Comfort Inn"; ay.settings.baseRate=j["Comfort Inn"].baseRate;
+    ay.settings.jobsFix2=1; ay.settings.updatedAt=Date.now(); ch++; }
+  const km=S.profiles&&S.profiles.KM;
+  if(km&&km.settings&&!km.settings.jobsFix2){ const j=km.settings.jobs||{};
+    if(!j["TBM"]) j["TBM"]=jobPlain(km.settings.baseRate||32);
+    km.settings.jobs=j; km.settings.jobsFix2=1; km.settings.updatedAt=Date.now(); ch++; }
+  if(ch) localStorage.setItem(KEY,JSON.stringify(S));
 }catch(e){} })();
 function load(){ try{ const r=localStorage.getItem(KEY); if(r) return migrate(JSON.parse(r)); }catch(e){} return seedState(); }
 function persist(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ toast("⚠︎ No se pudo guardar"); } }
@@ -1031,7 +1068,9 @@ function renderIngresos(){
   document.getElementById("in_range").textContent="Ingresos recibidos · "+(inPeriod==="year"?y:inPeriod==="month"?"este mes":"histórico");
   animateMoney(document.getElementById("in_total"),totRec);
   document.getElementById("in_meta").innerHTML=`${inPer.length} pago(s) · promedio <b>${money(nF?totRec/nF:0)}</b>/quincena`;
-  const hrsPer=liveEntries().filter(e=> inPeriod==="all"?true: inPeriod==="year"? e.date.slice(0,4)===y : e.date.slice(0,7)===mo).reduce((s,e)=>s+calcEntry(e,c).hours,0);
+  const hrsEnt=liveEntries().filter(e=> inPeriod==="all"?true: inPeriod==="year"? e.date.slice(0,4)===y : e.date.slice(0,7)===mo).reduce((s,e)=>s+calcEntry(e,c).hours,0);
+  const hrsPs=inPer.reduce((s,p)=>s+Number((p.detail&&p.detail.hours)||(p.abn&&p.abn.hours)||0),0);
+  const hrsPer=hrsEnt+hrsPs;
   const calcByF={}; liveEntries().forEach(e=>{const i=fIdx(e.date,c);calcByF[i]=(calcByF[i]||0)+calcEntry(e,c).total;});
   const recF=receivedByF(); let owed=0; for(const i in recF){ if(calcByF[i]!=null){ const d=calcByF[i]-recF[i]; if(d>0.5) owed+=d; } }
   const eff=totRec+totTax>0?Math.round(totTax/(totRec+totTax)*100):0;
@@ -1042,7 +1081,7 @@ function renderIngresos(){
     ["Super",money(totSup),"acumulado"],
     ["Te deben",money(owed),owed>0.5?"acumulado":"al día ✓"]];
   document.getElementById("in_kpis").innerHTML=kpis.map(x=>`<div class="kpi"><div class="k-l">${x[0]}</div><div class="k-v">${x[1]}</div><div class="k-s">${x[2]}</div></div>`).join("");
-  renderRateHero(); renderJobBreak();
+  renderRateHero(); renderPayslips(); renderJobBreak();
   let html="";
   if(owed>0.5) html+=ins("warn","⚠︎",`<b>Te deben ${money(owed)} en total.</b><small>Toca una quincena roja en la tabla para cuadrarla y generar el reclamo.</small>`);
   if(nF>0){ html+=ins("info","📈",`<b>Run-rate anual: ${money((totRec/nF)*26)}</b><small>Proyección a 26 quincenas al ritmo recibido.</small>`); }
@@ -1052,6 +1091,45 @@ function renderIngresos(){
   const inI=document.getElementById("in_insights"); inI.innerHTML=html;
   inI.querySelectorAll(".cuadLink").forEach(a=>a.onclick=ev=>{ev.preventDefault();openCuadrar(Number(a.dataset.fi));});
   renderIncomeCharts(c,calcByF,recF,y); renderCompare(c,calcByF,recF); renderPaymentsTable();
+}
+function renderPayslips(){
+  const card=document.getElementById("psCard"), t=document.getElementById("psTable"), ex=document.getElementById("psExtra");
+  if(!card||!t) return;
+  const y=String(new Date().getFullYear()), mo=thisMonth();
+  const inP=p=> inPeriod==="all"?true: inPeriod==="year"? p.date.slice(0,4)===y : p.date.slice(0,7)===mo;
+  const ps=paymentsList().filter(p=>p.detail&&p.detail.lines&&inP(p)).sort((a,b)=>a.date<b.date?-1:1);
+  const abns=paymentsList().filter(p=>p.abn&&inP(p));
+  if(!ps.length&&!abns.length){ card.hidden=true; t.innerHTML=""; if(ex) ex.innerHTML=""; return; }
+  card.hidden=false;
+  if(ps.length){
+    const cats=[]; ps.forEach(p=>p.detail.lines.forEach(l=>{ if(cats.indexOf(l[0])<0) cats.push(l[0]); }));
+    const T={h:0,g:0,tx:0,n:0,su:0}; const CT={};
+    let b="";
+    ps.forEach(p=>{ const d=p.detail; const map={}; d.lines.forEach(l=>map[l[0]]=l);
+      T.h+=Number(d.hours||0); T.g+=Number(d.gross||0); T.tx+=Number(p.tax||0); T.n+=Number(p.amount||0); T.su+=Number(p.superA||0);
+      b+=`<tr><td><b>${esc(d.ref||"")}</b><br><span style="color:var(--faint);font-size:11.5px">${fmtShort(d.p0)} – ${fmtShort(d.p1)}</span></td>
+        <td class="num">${fmtShort(p.date)}</td>`+
+        cats.map(cn=>{ const l=map[cn]; if(l) CT[cn]=(CT[cn]||0)+Number(l[1]||0);
+          return `<td class="num">${l?(Number(l[1]).toFixed(2)+"h<br><span style=\"color:var(--faint);font-size:11px\">@"+money(l[2])+"</span>"):"·"}</td>`; }).join("")+
+        `<td class="num"><b>${Number(d.hours).toFixed(2)}h</b></td>
+        <td class="amt">${money(d.gross)}</td>
+        <td class="amt neg">${p.tax?("−"+money(p.tax)):"·"}</td>
+        <td class="amt gld">${money(p.amount)}</td>
+        <td class="amt" style="color:var(--jade)">${p.superA?money(p.superA):"·"}</td>
+        <td class="num">${d.hours>0?money(p.amount/d.hours):"·"}</td></tr>`; });
+    const tot=`<tr style="background:var(--surface2);font-weight:700"><td><b>TOTAL</b></td><td></td>`+
+      cats.map(cn=>`<td class="num">${(CT[cn]||0).toFixed(2)}h</td>`).join("")+
+      `<td class="num"><b>${T.h.toFixed(2)}h</b></td><td class="amt">${money(T.g)}</td><td class="amt neg">−${money(T.tx)}</td>
+       <td class="amt gld">${money(T.n)}</td><td class="amt" style="color:var(--jade)">${money(T.su)}</td>
+       <td class="num">${T.h>0?money(T.n/T.h):"·"}</td></tr>`;
+    t.innerHTML=`<thead><tr><th>Payslip</th><th>Pagado</th>`+cats.map(cn=>`<th>${esc(cn)}</th>`).join("")+
+      `<th>Total h</th><th>Bruto</th><th>PAYG</th><th>Neto</th><th>Super</th><th>Neto $/h</th></tr></thead><tbody>${b}${tot}</tbody>`;
+    if(ex){ const n=ps.length, pm=n?T.n/n:0, taxPc=T.g>0?(T.tx/T.g*100):0;
+      let h=ins("info","📊",`<b>Promedio por quincena: ${money(pm)}</b><small>${(T.h/n).toFixed(2)}h · bruto ${money(T.g/n)} · impuesto efectivo ${taxPc.toFixed(1)}%</small>`);
+      h+=ins("info","📈",`<b>Proyección anual: ${money(pm*26)} neto</b><small>A 26 quincenas al mismo ritmo · super estimada ${money(T.su/n*26)} (va a tu fondo, no a tu cuenta).</small>`);
+      abns.forEach(a=>{ h+=ins("warn","🧾",`<b>ABN · ${esc(a.abn.hours)}h × ${money(a.abn.rate)} = ${money(a.abn.sub)}</b><small>Cobrado ${money(a.amount)} (incluye GST ${money(a.abn.gst)} que se devuelve al ATO). Aparta <b>${money(a.abn.reserve)}</b> para impuesto → te quedan <b>${money(a.abn.avail)}</b>.</small>`); });
+      ex.innerHTML=h; }
+  } else { t.innerHTML=""; if(ex) ex.innerHTML=""; }
 }
 function renderJobBreak(){ const c=cfg(); const card=document.getElementById("jobBreakCard"), box=document.getElementById("jobBreak");
   if(!card||!box) return;
@@ -1073,7 +1151,23 @@ function renderRateHero(){
   const y=String(new Date().getFullYear()), mo=thisMonth();
   const ents=liveEntries().filter(e=> inPeriod==="all"?true: inPeriod==="year"? e.date.slice(0,4)===y : e.date.slice(0,7)===mo);
   let H=0,base=0,sup=0,ext=0,tot=0; ents.forEach(e=>{const r=calcEntry(e,c); H+=r.hours; tot+=r.total; ext+=r.otPay; base+=r.reg*c.baseRate; if(r.isSuper) sup+=r.regPay-r.reg*c.baseRate;});
-  if(H<=0){ box.innerHTML='<div class="hint">Registra turnos para ver cuánto vale realmente tu hora.</div>'; return; }
+  if(H<=0){
+    const inP=p=> inPeriod==="all"?true: inPeriod==="year"? p.date.slice(0,4)===y : p.date.slice(0,7)===mo;
+    const ps=paymentsList().filter(p=>p.detail&&p.detail.lines&&inP(p));
+    if(!ps.length){ box.innerHTML='<div class="hint">Registra turnos para ver cuánto vale realmente tu hora.</div>'; return; }
+    const m={}; let gh=0,gg=0,gn=0;
+    ps.forEach(p=>{ p.detail.lines.forEach(l=>{ m[l[0]]=(m[l[0]]||0)+Number(l[3]||0); });
+      gh+=Number(p.detail.hours||0); gg+=Number(p.detail.gross||0); gn+=Number(p.amount||0); });
+    if(gh<=0){ box.innerHTML='<div class="hint">Sin horas registradas en este periodo.</div>'; return; }
+    const cols=["var(--slate)","var(--gold)","var(--jade)","var(--terra)"];
+    const sg=Object.keys(m).map((k,i)=>[k,m[k],cols[i%cols.length]]).filter(x=>x[1]>0.5);
+    const sum=sg.reduce((a,x)=>a+x[1],0)||1; const gr=gg/gh, nr=gn/gh;
+    box.innerHTML=`
+     <div class="big" style="font-size:clamp(34px,9vw,50px);margin:2px 0 2px"><span class="cur">A$</span>${gr.toFixed(2)}<span style="font-size:.32em;color:var(--muted);font-family:var(--mono);font-weight:500;margin-left:10px">/ hora bruta</span></div>
+     <div class="meta">Después de impuestos te quedan <b class="gld">${money(nr)}</b> por hora · ${gh.toFixed(2)}h en ${ps.length} payslip(s). Tu tarifa entre semana es ${money(cfg().baseRate)}; los fines de semana pagan más.</div>
+     <div class="decomp">${sg.map(x=>`<span style="background:${x[2]};flex:${(x[1]/sum).toFixed(4)}" title="${esc(x[0])}: ${money(x[1])}">${x[1]/sum>0.13?esc(x[0].split(" ")[0]):""}</span>`).join("")}</div>
+     <div class="decomp-key">${sg.map(x=>`<span><i style="background:${x[2]}"></i>${esc(x[0])} · <b style="color:var(--ink);font-family:var(--mono)">${money(x[1])}</b> (${Math.round(x[1]/sum*100)}%)</span>`).join("")}</div>`;
+    return; }
   const rate=tot/H, delta=rate-c.baseRate;
   const seg=[["Base",base,"var(--slate)"],["Super S",sup,"var(--gold)"],["Extra",ext,"var(--jade)"]].filter(s=>s[1]>0.5);
   const sum=seg.reduce((a,s)=>a+s[1],0)||1;
@@ -1314,7 +1408,9 @@ function activeTab(){ const a=document.querySelector("nav.tabs button.active"); 
 function showTab(name){ document.querySelectorAll("nav.tabs button").forEach(b=>{const on=b.dataset.tab===name;b.classList.toggle("active",on);b.setAttribute("aria-selected",on);});
   ["inicio","registrar","historial","ingresos","ajustes"].forEach(t=>document.getElementById("tab-"+t).hidden=(t!==name));
   if(name==="inicio")renderDashboard(); if(name==="historial")renderHistorial(); if(name==="ingresos")renderIngresos(); if(name==="ajustes")loadConfigForm(); if(name==="registrar")renderClock(); }
-function renderAll(){ renderProfiles(); const t=activeTab(); if(t==="inicio")renderDashboard(); if(t==="historial")renderHistorial(); if(t==="ingresos")renderIngresos(); if(t==="ajustes")loadConfigForm(); }
+function refreshRegJobChips(){ const el=document.getElementById("r_job"); if(!el) return;
+  fillJobChips("r",el.value,()=>renderBreakdown("r","r_preview")); }
+function renderAll(){ renderProfiles(); refreshRegJobChips(); const t=activeTab(); if(t==="inicio")renderDashboard(); if(t==="historial")renderHistorial(); if(t==="ingresos")renderIngresos(); if(t==="ajustes")loadConfigForm(); }
 
 /* ===================== Export ===================== */
 function exportCSV(){ const c=cfg(); const rows=[["fecha","entrada","salida","descanso_min","feriado","horas_pagadas","pago_normal","pago_extra","pago_nocturno","total_AUD"]];
