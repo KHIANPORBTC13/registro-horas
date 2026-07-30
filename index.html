@@ -626,7 +626,7 @@ function defaultSettings(base){ return {
   currency:"AUD", audPerUsd:1.50, baseRate:base, unpaidBreakMin:30, anchor:"2026-05-22",
   superBefore:"06:00", superPct:30,
   otThresh:8, otThreshFri:6, otM1:1.5, otM2:2, satTierHours:3,
-  jobs:{"Blackline":jobBlackline(base),"Green & Clean":jobPlain(base)}, defaultJob:"Blackline",
+  jobs:{"Blackline":jobBlackline(base),"Green & Clean":jobPlain(30)}, defaultJob:"Blackline",
   goalMonthly:0, tolPct:2, recon:{}, milestonesSeen:[], autoHolidays:false, updatedAt:0
 };}
 function jobRules(c,job){ const js=c&&c.jobs; if(!js) return c;
@@ -649,7 +649,7 @@ function migrate(st){
       p.settings.jobs = (pid==="Ayleen")
         ? ayleenJobs()
         : {"Blackline":{baseRate:s0.baseRate,unpaidBreakMin:s0.unpaidBreakMin,superBefore:s0.superBefore,superPct:s0.superPct,otThresh:s0.otThresh,otThreshFri:s0.otThreshFri,otM1:s0.otM1,otM2:s0.otM2,satTierHours:s0.satTierHours,satAllPremium:true},
-           "Green & Clean":jobPlain(s0.baseRate)};
+           "Green & Clean":jobPlain(30)};
     }
     if(!p.settings.defaultJob||!p.settings.jobs[p.settings.defaultJob]) p.settings.defaultJob=Object.keys(p.settings.jobs)[0];
     p.entries=(p.entries||[]).map(e=>Object.assign({updatedAt:1},e));
@@ -704,6 +704,8 @@ let S=load();
   if(km&&km.settings&&!km.settings.jobsFix2){ const j=km.settings.jobs||{};
     if(!j["TBM"]) j["TBM"]=jobPlain(km.settings.baseRate||32);
     km.settings.jobs=j; km.settings.jobsFix2=1; km.settings.updatedAt=Date.now(); ch++; }
+  if(km&&km.settings&&km.settings.jobs&&km.settings.jobs["Green & Clean"]&&!km.settings.gcRate30){
+    km.settings.jobs["Green & Clean"].baseRate=30; km.settings.gcRate30=1; km.settings.updatedAt=Date.now(); ch++; }
   if(ch) localStorage.setItem(KEY,JSON.stringify(S));
 }catch(e){} })();
 function load(){ try{ const r=localStorage.getItem(KEY); if(r) return migrate(JSON.parse(r)); }catch(e){} return seedState(); }
