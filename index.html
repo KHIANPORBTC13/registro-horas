@@ -428,6 +428,7 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
     </div>
   </div>
 
+  <div class="seg" id="in_job" style="margin:12px 0 0" role="group" aria-label="Filtrar por trabajo"></div>
   <div class="kpis" id="in_kpis"></div>
 
   <div class="block-h"><span class="sec-n">01</span><h2 class="sec">Tu hora vale</h2></div>
@@ -738,7 +739,7 @@ function calcEntry(en,c0){
   const brk=(en.brk!=null&&en.brk!=="")?Number(en.brk):c.unpaidBreakMin;
   const grossH=(e-s)/60, breakH=Math.min(brk,e-s)/60, hours=Math.max(0,(e-s)-brk)/60;
   const dow=new Date(en.date+"T00:00:00").getDay();
-  const isSuper = s < toMin(c.superBefore||"06:00");
+  const isSuper = s < toMin(c.superBefore||"06:00") && (c.superPct||0)>0;
   const sp=(c.superPct||0)/100;
   const wkMult = (dow===0)?(c.sunMult||1):((dow===6&&c.satAllPremium===false)?(c.satMult||1):1);
   const dayMult = isSuper?(1+sp):wkMult;
@@ -1059,22 +1060,31 @@ function renderHistorial(){
 /* ===================== Ingresos (centro) ===================== */
 function paymentsList(){ return (P().payments||[]).filter(p=>!p.deleted); }
 function receivedByF(){ const c=cfg(),m={}; paymentsList().forEach(p=>{const i=fIdx(p.date,c);m[i]=(m[i]||0)+Number(p.amount||0);}); return m; }
-let inPeriod="year", editingPay=null, payFile=null;
+let inPeriod="year", inJob="__all", editingPay=null, payFile=null;
+function jobFilterEntries(list){ return inJob==="__all"?list:list.filter(e=>jobOf(e)===inJob); }
+function jobFilterPayments(list){ return inJob==="__all"?list:list.filter(p=>p.source===inJob); }
+function renderJobSeg(){ const box=document.getElementById("in_job"); if(!box) return;
+  const names=jobNames(); if(inJob!=="__all"&&names.indexOf(inJob)<0) inJob="__all";
+  box.innerHTML=`<button data-j="__all" type="button" class="${inJob==='__all'?'on':''}">Todos</button>`+
+    names.map(n=>`<button data-j="${esc(n)}" type="button" class="${inJob===n?'on':''}">${esc(n)}</button>`).join(""); }
 function renderIngresos(){
   const c=cfg(), y=String(new Date().getFullYear()), mo=thisMonth();
-  const inPer=paymentsList().filter(p=> inPeriod==="all"?true : inPeriod==="year"? p.date.slice(0,4)===y : p.date.slice(0,7)===mo);
+  renderJobSeg();
+  const entries=jobFilterEntries(liveEntries()), pays=jobFilterPayments(paymentsList());
+  const inPer=pays.filter(p=> inPeriod==="all"?true : inPeriod==="year"? p.date.slice(0,4)===y : p.date.slice(0,7)===mo);
   const totRec=inPer.reduce((s,p)=>s+Number(p.amount||0),0);
   const totTax=inPer.reduce((s,p)=>s+Number(p.tax||0),0);
   const totSup=inPer.reduce((s,p)=>s+Number(p.superA||0),0);
   const nF=new Set(inPer.map(p=>fIdx(p.date,c))).size;
-  document.getElementById("in_range").textContent="Ingresos recibidos · "+(inPeriod==="year"?y:inPeriod==="month"?"este mes":"histórico");
+  document.getElementById("in_range").textContent=(inJob==="__all"?"Ingresos recibidos":esc(inJob))+" · "+(inPeriod==="year"?y:inPeriod==="month"?"este mes":"histórico");
   animateMoney(document.getElementById("in_total"),totRec);
   document.getElementById("in_meta").innerHTML=`${inPer.length} pago(s) · promedio <b>${money(nF?totRec/nF:0)}</b>/quincena`;
-  const hrsEnt=liveEntries().filter(e=> inPeriod==="all"?true: inPeriod==="year"? e.date.slice(0,4)===y : e.date.slice(0,7)===mo).reduce((s,e)=>s+calcEntry(e,c).hours,0);
+  const hrsEnt=entries.filter(e=> inPeriod==="all"?true: inPeriod==="year"? e.date.slice(0,4)===y : e.date.slice(0,7)===mo).reduce((s,e)=>s+calcEntry(e,c).hours,0);
   const hrsPs=inPer.reduce((s,p)=>s+Number((p.detail&&p.detail.hours)||(p.abn&&p.abn.hours)||0),0);
   const hrsPer=hrsEnt+hrsPs;
-  const calcByF={}; liveEntries().forEach(e=>{const i=fIdx(e.date,c);calcByF[i]=(calcByF[i]||0)+calcEntry(e,c).total;});
-  const recF=receivedByF(); let owed=0; for(const i in recF){ if(calcByF[i]!=null){ const d=calcByF[i]-recF[i]; if(d>0.5) owed+=d; } }
+  const calcByF={}; entries.forEach(e=>{const i=fIdx(e.date,c);calcByF[i]=(calcByF[i]||0)+calcEntry(e,c).total;});
+  const recF={}; pays.forEach(p=>{const i=fIdx(p.date,c);recF[i]=(recF[i]||0)+Number(p.amount||0);});
+  let owed=0; for(const i in recF){ if(calcByF[i]!=null){ const d=calcByF[i]-recF[i]; if(d>0.5) owed+=d; } }
   const eff=totRec+totTax>0?Math.round(totTax/(totRec+totTax)*100):0;
   const kpis=[["Recibido",money(totRec),inPeriod==="year"?("año "+y):inPeriod==="month"?"este mes":"histórico"],
     ["Prom./quincena",money(nF?totRec/nF:0),nF+" quincena(s)"],
@@ -1089,7 +1099,7 @@ function renderIngresos(){
   if(nF>0){ html+=ins("info","📈",`<b>Run-rate anual: ${money((totRec/nF)*26)}</b><small>Proyección a 26 quincenas al ritmo recibido.</small>`); }
   if(hrsPer>0){ const real=totRec/hrsPer,d=real-c.baseRate; html+=ins(d>=0?"good":"info",d>=0?"✓":"◎",`<b>Tu hora real vale ${money(real)}</b><small>${d>=0?"Por encima":"Por debajo"} de la nominal (${money(c.baseRate)}) por recargos, extras o retenciones.</small>`); }
   {const pd=Object.keys(recF).filter(i=>calcByF[i]!=null);if(pd.length){let okc=0,worst=null;pd.forEach(i=>{const dd=recF[i]-calcByF[i];if(Math.abs(dd)<(calcByF[i]*(c.tolPct||2)/100+0.5))okc++;if(dd<-0.5&&(!worst||dd<worst.d))worst={i,d:dd};});const pc=Math.round(okc/pd.length*100);html+=ins(pc>=80?"good":"warn",pc>=80?"✓":"⚠︎",`<b>Precisión de pago: ${pc}%</b><small>${okc} de ${pd.length} quincenas pagadas correctas.</small>`);if(worst){const wr=fRange(Number(worst.i),c);html+=ins("warn","🔻",`<b>Mayor déficit: ${fmtShort(wr.start)}</b><small>Te faltaron ${money(-worst.d)} esa quincena — <a href="#" class="cuadLink" data-fi="${worst.i}" style="color:var(--gold);font-weight:600">cuadrar →</a></small>`);}}}
-  if(!paymentsList().length) html=ins("info","✶","<b>Aún no registras pagos.</b><small>Agrega tu primer depósito y su comprobante abajo.</small>");
+  if(!pays.length) html=ins("info","✶",inJob==="__all"?"<b>Aún no registras pagos.</b><small>Agrega tu primer depósito y su comprobante abajo.</small>":`<b>Sin pagos de ${esc(inJob)} todavía.</b><small>Cambia el filtro o registra un pago con esa fuente.</small>`);
   const inI=document.getElementById("in_insights"); inI.innerHTML=html;
   inI.querySelectorAll(".cuadLink").forEach(a=>a.onclick=ev=>{ev.preventDefault();openCuadrar(Number(a.dataset.fi));});
   renderIncomeCharts(c,calcByF,recF,y); renderCompare(c,calcByF,recF); renderPaymentsTable();
@@ -1151,31 +1161,34 @@ function renderJobBreak(){ const c=cfg(); const card=document.getElementById("jo
 function renderRateHero(){
   const c=cfg(); const box=document.getElementById("rateHero"); if(!box) return;
   const y=String(new Date().getFullYear()), mo=thisMonth();
-  const ents=liveEntries().filter(e=> inPeriod==="all"?true: inPeriod==="year"? e.date.slice(0,4)===y : e.date.slice(0,7)===mo);
-  let H=0,base=0,sup=0,ext=0,tot=0; ents.forEach(e=>{const r=calcEntry(e,c); H+=r.hours; tot+=r.total; ext+=r.otPay; base+=r.reg*c.baseRate; if(r.isSuper) sup+=r.regPay-r.reg*c.baseRate;});
+  const ents=jobFilterEntries(liveEntries()).filter(e=> inPeriod==="all"?true: inPeriod==="year"? e.date.slice(0,4)===y : e.date.slice(0,7)===mo);
+  let H=0,base=0,sup=0,ext=0,tot=0,nomRef=c.baseRate;
+  ents.forEach(e=>{const r=calcEntry(e,c); const nom=jobRules(c,e.job).baseRate; H+=r.hours; tot+=r.total; ext+=r.otPay; base+=r.reg*nom; if(r.isSuper) sup+=r.regPay-r.reg*nom;});
+  if(inJob!=="__all"&&(cfg().jobs||{})[inJob]) nomRef=cfg().jobs[inJob].baseRate;
   if(H<=0){
     const inP=p=> inPeriod==="all"?true: inPeriod==="year"? p.date.slice(0,4)===y : p.date.slice(0,7)===mo;
-    const ps=paymentsList().filter(p=>p.detail&&p.detail.lines&&inP(p));
+    const ps=jobFilterPayments(paymentsList()).filter(p=>p.detail&&p.detail.lines&&inP(p));
     if(!ps.length){ box.innerHTML='<div class="hint">Registra turnos para ver cuánto vale realmente tu hora.</div>'; return; }
     const m={}; let gh=0,gg=0,gn=0;
     ps.forEach(p=>{ p.detail.lines.forEach(l=>{ m[l[0]]=(m[l[0]]||0)+Number(l[3]||0); });
       gh+=Number(p.detail.hours||0); gg+=Number(p.detail.gross||0); gn+=Number(p.amount||0); });
     if(gh<=0){ box.innerHTML='<div class="hint">Sin horas registradas en este periodo.</div>'; return; }
+    const nomRefPs=(inJob!=="__all"&&(cfg().jobs||{})[inJob])?cfg().jobs[inJob].baseRate:cfg().baseRate;
     const cols=["var(--slate)","var(--gold)","var(--jade)","var(--terra)"];
     const sg=Object.keys(m).map((k,i)=>[k,m[k],cols[i%cols.length]]).filter(x=>x[1]>0.5);
     const sum=sg.reduce((a,x)=>a+x[1],0)||1; const gr=gg/gh, nr=gn/gh;
     box.innerHTML=`
      <div class="big" style="font-size:clamp(34px,9vw,50px);margin:2px 0 2px"><span class="cur">A$</span>${gr.toFixed(2)}<span style="font-size:.32em;color:var(--muted);font-family:var(--mono);font-weight:500;margin-left:10px">/ hora bruta</span></div>
-     <div class="meta">Después de impuestos te quedan <b class="gld">${money(nr)}</b> por hora · ${gh.toFixed(2)}h en ${ps.length} payslip(s). Tu tarifa entre semana es ${money(cfg().baseRate)}; los fines de semana pagan más.</div>
+     <div class="meta">Después de impuestos te quedan <b class="gld">${money(nr)}</b> por hora · ${gh.toFixed(2)}h en ${ps.length} payslip(s). Tu tarifa entre semana es ${money(nomRefPs)}; los fines de semana pagan más.</div>
      <div class="decomp">${sg.map(x=>`<span style="background:${x[2]};flex:${(x[1]/sum).toFixed(4)}" title="${esc(x[0])}: ${money(x[1])}">${x[1]/sum>0.13?esc(x[0].split(" ")[0]):""}</span>`).join("")}</div>
      <div class="decomp-key">${sg.map(x=>`<span><i style="background:${x[2]}"></i>${esc(x[0])} · <b style="color:var(--ink);font-family:var(--mono)">${money(x[1])}</b> (${Math.round(x[1]/sum*100)}%)</span>`).join("")}</div>`;
     return; }
-  const rate=tot/H, delta=rate-c.baseRate;
+  const rate=tot/H, delta=rate-nomRef;
   const seg=[["Base",base,"var(--slate)"],["Super S",sup,"var(--gold)"],["Extra",ext,"var(--jade)"]].filter(s=>s[1]>0.5);
   const sum=seg.reduce((a,s)=>a+s[1],0)||1;
   box.innerHTML=`
    <div class="big" style="font-size:clamp(34px,9vw,50px);margin:2px 0 2px"><span class="cur">A$</span>${rate.toFixed(2)}<span style="font-size:.32em;color:var(--muted);font-family:var(--mono);font-weight:500;margin-left:10px">/ hora real</span></div>
-   <div class="meta">Tu tarifa nominal es ${money(c.baseRate)} — cada hora trabajada vale <b class="${delta>=0?'pos':'neg'}">${(delta>=0?'+':'')}${money(delta)}</b> por madrugar (Super S), extras y sábados.</div>
+   <div class="meta">Tu tarifa nominal${inJob!=="__all"?(" en "+esc(inJob)):""} es ${money(nomRef)} — cada hora trabajada vale <b class="${delta>=0?'pos':'neg'}">${(delta>=0?'+':'')}${money(delta)}</b> por madrugar (Super S), extras y sábados.</div>
    <div class="decomp">${seg.map(s=>`<span style="background:${s[2]};flex:${(s[1]/sum).toFixed(4)}" title="${s[0]}: ${money(s[1])}">${s[1]/sum>0.13?s[0]:''}</span>`).join("")}</div>
    <div class="decomp-key">${seg.map(s=>`<span><i style="background:${s[2]}"></i>${s[0]} · <b style="color:var(--ink);font-family:var(--mono)">${money(s[1])}</b> (${Math.round(s[1]/sum*100)}%)</span>`).join("")}</div>`;
 }
@@ -1219,6 +1232,7 @@ function renderIncomeCharts(c,calcByF,recF,y){
     {label:"Extra",data:keys.map(i=>conv((agg[i]||{}).ext||0)),backgroundColor:JADE,borderRadius:4}]},options:stk});
 }
 function renderCompare(c,calcByF,recF){
+  const _payFor=jobFilterPayments(paymentsList());
   const agg={}; liveEntries().forEach(e=>{const i=fIdx(e.date,c);const r=calcEntry(e,c);const a=agg[i]||(agg[i]={h:0,nor:0,sup:0,ext:0,teo:0});a.h+=r.hours;a.ext+=r.otPay;a.teo+=r.total;if(r.isSuper)a.sup+=r.regPay;else a.nor+=r.regPay;});
   for(const i in recF){ if(!agg[i]) agg[i]={h:0,nor:0,sup:0,ext:0,teo:0}; }
   const t=document.getElementById("c_table"); const asc=Object.keys(agg).map(Number).sort((a,b)=>a-b);
@@ -1228,7 +1242,7 @@ function renderCompare(c,calcByF,recF){
   let b="",T={h:0,nor:0,sup:0,ext:0,teo:0,rec:0};
   for(const i of asc){ const r=fRange(i,c),a=agg[i],rv=recF[i];
     const diff=(rv!=null)?rv-a.teo:null, tasa=(a.h>0&&rv!=null)?rv/a.h:null;
-    const hasFile=paymentsList().some(p=>fIdx(p.date,c)===i&&p.file);
+    const hasFile=_payFor.some(p=>fIdx(p.date,c)===i&&p.file);
     const under=rv!=null&&rv<a.teo*(1-tol)-0.5;
     T.h+=a.h;T.nor+=a.nor;T.sup+=a.sup;T.ext+=a.ext;T.teo+=a.teo;if(rv!=null)T.rec+=rv;
     b+=`<tr class="cuadrable" data-fi="${i}"><td><b>${qn[i]}</b>${under?' <span class="badge terra">revisar</span>':''}</td><td style="color:var(--muted);white-space:nowrap">${fmtShort(r.start)} – ${fmtShort(r.end)}</td>
@@ -1244,17 +1258,19 @@ function renderCompare(c,calcByF,recF){
   t.querySelectorAll("tbody tr[data-fi]").forEach(tr=>tr.onclick=()=>openCuadrar(Number(tr.dataset.fi)));
 }
 let cuadrarF=null;
-function claimText(teo,recv,fr,ents,c){
-  const L=["Hi payroll team,","","I'm reviewing my pay for the fortnight "+fr.start+" to "+fr.end+" and the deposited amount doesn't match my calculated entitlement.","","Shifts worked:"];
+function claimText(teo,recv,fr,ents,c,jobLabel){
+  const L=["Hi payroll team,","","I'm reviewing my pay"+(jobLabel?(" from "+jobLabel):"")+" for the fortnight "+fr.start+" to "+fr.end+" and the deposited amount doesn't match my calculated entitlement.","","Shifts worked:"];
   ents.forEach(e=>{const r=calcEntry(e,c);L.push("- "+e.date+" "+e.start+"-"+e.end+": "+r.hours.toFixed(2)+"h"+(r.isSuper?" (early start before "+(c.superBefore||"06:00")+", +"+c.superPct+"% loading)":"")+(r.ot>0?", "+r.ot.toFixed(2)+"h overtime":"")+" = A$"+r.total.toFixed(2));});
   L.push("","Expected total: A$"+teo.toFixed(2),"Received: A$"+recv.toFixed(2),"Shortfall: A$"+(teo-recv).toFixed(2),"","Could you please review and advise? Thank you.");
   return L.join("\n");
 }
 function openCuadrar(i){
   const c=cfg(); cuadrarF=i; const fr=fRange(i,c);
-  const ents=liveEntries().filter(e=>fIdx(e.date,c)===i).sort((a,b)=>a.date<b.date?-1:1);
+  const jobLabel=inJob==="__all"?null:inJob;
+  const ents=jobFilterEntries(liveEntries()).filter(e=>fIdx(e.date,c)===i).sort((a,b)=>a.date<b.date?-1:1);
   let teo=0; const rows=ents.map(e=>{const r=calcEntry(e,c);teo+=r.total;return `<div><span>${fmtShort(e.date)} ${DAY_ES[r.dow]} ${esc(e.start)}–${esc(e.end)}${r.isSuper?' 🌙':''}${r.ot>0?' <span class="pos">+OT</span>':''}</span><b>${money(r.total)}</b></div>`;}).join("");
-  const rv=receivedByF()[i]; const recv=rv!=null?rv:0; const diff=recv-teo;
+  const recFj={}; jobFilterPayments(paymentsList()).forEach(p=>{const fi=fIdx(p.date,c);recFj[fi]=(recFj[fi]||0)+Number(p.amount||0);});
+  const rv=recFj[i]; const recv=rv!=null?rv:0; const diff=recv-teo;
   const recon=(c.recon&&c.recon[i])||null;
   document.getElementById("cuadrarBody").innerHTML=`
     <div class="forensic ${diff<-0.5?'bad':'ok'}" style="padding:15px;border-radius:12px;background:var(--bg2);margin-bottom:14px">
@@ -1269,7 +1285,7 @@ function openCuadrar(i){
     <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Turnos de la quincena</div>
     <div class="ledger" style="margin-bottom:16px">${rows||'<span class="hint">Sin turnos esta quincena.</span>'}</div>
     <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Borrador de reclamo a nómina (inglés)</div>
-    <div class="claim" id="claimText">${esc(claimText(teo,recv,fr,ents,c))}</div>`;
+    <div class="claim" id="claimText">${esc(claimText(teo,recv,fr,ents,c,jobLabel))}</div>`;
   const sc=document.getElementById("cuadrarScrim"); sc.classList.add("open"); sc.setAttribute("aria-hidden","false");
 }
 function closeCuadrar(){ const sc=document.getElementById("cuadrarScrim"); sc.classList.remove("open"); sc.setAttribute("aria-hidden","true"); cuadrarF=null; }
@@ -1481,6 +1497,7 @@ window.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("pay_file").onchange=onPayFile;
   document.getElementById("pay_ocr").onclick=ocrAmount;
   document.getElementById("in_period").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b||!b.dataset.per)return; inPeriod=b.dataset.per; document.querySelectorAll("#in_period button").forEach(x=>x.classList.toggle("on",x.dataset.per===inPeriod)); renderIngresos();});
+  document.getElementById("in_job").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b||!b.dataset.j)return; inJob=b.dataset.j; renderIngresos();});
 
   // AURUM: heatmap + cuadrar
   document.getElementById("heatLens").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b||!b.dataset.lens)return; heatLens=b.dataset.lens; document.querySelectorAll("#heatLens button").forEach(x=>x.classList.toggle("on",x.dataset.lens===heatLens)); renderHeatmap();});
