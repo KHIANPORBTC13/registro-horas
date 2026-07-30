@@ -379,6 +379,8 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
     <div class="clock">
       <div class="eyebrow" id="clk_label">Listo para fichar</div>
       <div class="chips" id="clk_jobChips" style="justify-content:center"></div>
+      <label class="f" style="max-width:200px;margin:10px auto 0;text-align:center" id="clk_rateWrap">Tarifa este turno (AUD/h)
+        <input type="number" class="inp" id="clk_rate" step="0.5" placeholder="auto" style="text-align:center"></label>
       <div class="time" id="clk_time">00:00:00</div>
       <button class="bigbtn" id="clk_btn" type="button">Entrar</button>
       <div class="hint" id="clk_sub" style="text-align:center">Pulsa para iniciar tu turno. Al salir, se calcula y guarda solo.</div>
@@ -627,7 +629,7 @@ function defaultSettings(base){ return {
   currency:"AUD", audPerUsd:1.50, baseRate:base, unpaidBreakMin:30, anchor:"2026-05-22",
   superBefore:"06:00", superPct:30,
   otThresh:8, otThreshFri:6, otM1:1.5, otM2:2, satTierHours:3,
-  jobs:{"Blackline":jobBlackline(base),"Green & Clean":jobPlain(30)}, defaultJob:"Blackline",
+  jobs:{"Blackline":jobBlackline(base),"Green & Clean":jobPlain(33)}, defaultJob:"Blackline",
   goalMonthly:0, tolPct:2, recon:{}, milestonesSeen:[], autoHolidays:false, updatedAt:0
 };}
 function jobRules(c,job){ const js=c&&c.jobs; if(!js) return c;
@@ -650,7 +652,7 @@ function migrate(st){
       p.settings.jobs = (pid==="Ayleen")
         ? ayleenJobs()
         : {"Blackline":{baseRate:s0.baseRate,unpaidBreakMin:s0.unpaidBreakMin,superBefore:s0.superBefore,superPct:s0.superPct,otThresh:s0.otThresh,otThreshFri:s0.otThreshFri,otM1:s0.otM1,otM2:s0.otM2,satTierHours:s0.satTierHours,satAllPremium:true},
-           "Green & Clean":jobPlain(30)};
+           "Green & Clean":jobPlain(33)};
     }
     if(!p.settings.defaultJob||!p.settings.jobs[p.settings.defaultJob]) p.settings.defaultJob=Object.keys(p.settings.jobs)[0];
     p.entries=(p.entries||[]).map(e=>Object.assign({updatedAt:1},e));
@@ -692,6 +694,17 @@ let S=load();
   else if(!ea.abn){ ea.abn=abn.abn; ea.note=abn.note; ea.updatedAt=Date.now(); ch++; }
   if(ch) localStorage.setItem(KEY,JSON.stringify(S));
 }catch(e){} })();
+(function ensureGreenClean(){ try{ const p=S.profiles&&S.profiles.KM; if(!p) return;
+  const have=new Set((p.entries||[]).filter(e=>!e.deleted).map(e=>e.id));
+  const GC=[["gc-2026-07-20","2026-07-20","08:31","15:57","aeropuerto"],
+            ["gc-2026-07-21","2026-07-21","08:59","16:08","aeropuerto"],
+            ["gc-2026-07-22","2026-07-22","09:01","15:44","aeropuerto"],
+            ["gc-2026-07-23","2026-07-23","08:58","16:03","aeropuerto"],
+            ["gc-2026-07-24","2026-07-24","08:00","14:30","Camp Hill"],
+            ["gc-2026-07-25","2026-07-25","08:00","16:00","Woolloongabba"]];
+  let n=0; GC.forEach(r=>{ if(!have.has(r[0])){ p.entries.push({id:r[0],date:r[1],start:r[2],end:r[3],brk:"30",job:"Green & Clean",holiday:false,note:"Invoice #3 · "+r[4],updatedAt:Date.now()}); n++; } });
+  if(n) localStorage.setItem(KEY,JSON.stringify(S));
+}catch(e){} })();
 /* Normaliza los trabajos de cada perfil una sola vez: Ayleen solo Comfort Inn (+TBM casual); ambos con TBM */
 (function ensureJobs(){ try{ let ch=0;
   const ay=S.profiles&&S.profiles.Ayleen;
@@ -707,6 +720,8 @@ let S=load();
     km.settings.jobs=j; km.settings.jobsFix2=1; km.settings.updatedAt=Date.now(); ch++; }
   if(km&&km.settings&&km.settings.jobs&&km.settings.jobs["Green & Clean"]&&!km.settings.gcRate30){
     km.settings.jobs["Green & Clean"].baseRate=30; km.settings.gcRate30=1; km.settings.updatedAt=Date.now(); ch++; }
+  if(km&&km.settings&&km.settings.jobs&&km.settings.jobs["Green & Clean"]&&!km.settings.gcRate33){
+    km.settings.jobs["Green & Clean"].baseRate=33; km.settings.gcRate33=1; km.settings.updatedAt=Date.now(); ch++; }
   if(ch) localStorage.setItem(KEY,JSON.stringify(S));
 }catch(e){} })();
 function load(){ try{ const r=localStorage.getItem(KEY); if(r) return migrate(JSON.parse(r)); }catch(e){} return seedState(); }
@@ -735,6 +750,8 @@ function thisMonth(){ return todayStr().slice(0,7); }
 function nightOverlap(s,e,ns,ne){ let t=0; for(let d=-1;d<=1;d++){ const a=ns+d*1440,b=(ne<=ns?ne+1440:ne)+d*1440; t+=Math.max(0,Math.min(e,b)-Math.max(s,a)); } return t; }
 function calcEntry(en,c0){
   const c=jobRules(c0,en&&en.job);
+  const rateOv=(en&&en.rateOverride!=null&&en.rateOverride!==""&&!isNaN(Number(en.rateOverride)))?Number(en.rateOverride):null;
+  const effBase=rateOv!=null?rateOv:c.baseRate;
   let s=toMin(en.start),e=toMin(en.end); if(e<=s) e+=1440;
   const brk=(en.brk!=null&&en.brk!=="")?Number(en.brk):c.unpaidBreakMin;
   const grossH=(e-s)/60, breakH=Math.min(brk,e-s)/60, hours=Math.max(0,(e-s)-brk)/60;
@@ -743,13 +760,13 @@ function calcEntry(en,c0){
   const sp=(c.superPct||0)/100;
   const wkMult = (dow===0)?(c.sunMult||1):((dow===6&&c.satAllPremium===false)?(c.satMult||1):1);
   const dayMult = isSuper?(1+sp):wkMult;
-  const rate = c.baseRate*dayMult;
+  const rate = effBase*dayMult;
   const th=(dow===5&&c.otThreshFri!=null&&c.otThreshFri>0)?c.otThreshFri:c.otThresh;
   let reg,ot,ot1,ot2;
   if(dow===6&&c.satAllPremium!==false){ reg=0; ot=hours; ot1=Math.min(ot,c.satTierHours); ot2=ot-ot1; }
   else { reg=Math.min(hours,th); ot=Math.max(0,hours-th); ot1=ot; ot2=0; }
-  const regPay=reg*rate, otPay=ot1*c.baseRate*c.otM1+ot2*c.baseRate*c.otM2;
-  return {grossH,breakH,hours,reg,ot,ot1,ot2,regPay,otPay,nightH:0,nightPay:0,total:regPay+otPay,rate,isSuper,dayMult,dow};
+  const regPay=reg*rate, otPay=ot1*effBase*c.otM1+ot2*effBase*c.otM2;
+  return {grossH,breakH,hours,reg,ot,ot1,ot2,regPay,otPay,nightH:0,nightPay:0,total:regPay+otPay,rate,effBase,isSuper,dayMult,dow};
 }
 function parseD(s){ const a=String(s).split("-"); return Date.UTC(+a[0],(+a[1]||1)-1,+a[2]||1); }
 function ymdU(ms){ const d=new Date(ms); return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0"); }
@@ -803,8 +820,9 @@ function randomCode(){ const a="abcdefghijkmnpqrstuvwxyz23456789",x=new Uint8Arr
 /* ===================== Formulario reutilizable ===================== */
 function formHTML(p){ return `
   <div style="font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px">Trabajo</div>
-  <div class="chips" id="${p}_jobChips" style="margin-bottom:16px"></div>
+  <div class="chips" id="${p}_jobChips" style="margin-bottom:10px"></div>
   <input type="hidden" id="${p}_job">
+  <label class="f" style="max-width:220px;margin-bottom:16px">Tarifa este turno (AUD/h)<input type="number" class="inp" id="${p}_rate" step="0.5" placeholder="auto"></label>
   <div class="fg">
     <label class="f">Fecha<input type="date" class="inp" id="${p}_date"></label>
     <label class="f">Entrada<input type="time" class="inp" id="${p}_start"></label>
@@ -826,10 +844,12 @@ function formHTML(p){ return `
 }
 function readForm(p){ const g=id=>document.getElementById(p+"_"+id);
   return { date:g("date").value, start:g("start").value, end:g("end").value, job:g("job").value||cfg().defaultJob,
-    brk:g("brk").value, holiday:g("hol").checked, note:g("note").value }; }
-function fillJobChips(p,sel,after){ const box=document.getElementById(p+"_jobChips"); if(!box) return;
+    rate:g("rate")?g("rate").value:"", brk:g("brk").value, holiday:g("hol").checked, note:g("note").value }; }
+function fillJobChips(p,sel,after,keepRate){ const box=document.getElementById(p+"_jobChips"); if(!box) return;
   const names=jobNames(); const cur=(names.indexOf(sel)>=0)?sel:(cfg().defaultJob||names[0]);
   const inp=document.getElementById(p+"_job"); if(inp) inp.value=cur;
+  const rateInp=document.getElementById(p+"_rate");
+  if(rateInp&&!keepRate) rateInp.placeholder="auto ("+money((cfg().jobs&&cfg().jobs[cur]?cfg().jobs[cur]:{}).baseRate||cfg().baseRate)+")";
   box.innerHTML=names.map(n=>`<button class="chip ${n===cur?"on":""}" data-job="${esc(n)}" type="button">${esc(n)}</button>`).join("");
   box.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{ fillJobChips(p,ch.dataset.job,after); if(after) after(); });
 }
@@ -841,7 +861,7 @@ function renderBreakdown(p,boxId){
   if(!en.date||!en.start||!en.end){ box.innerHTML='<span class="hint">Completa fecha y horas para ver el cálculo…</span>'; return; }
   const c=jobRules(cfg(),en.job); const r=calcEntry(en,cfg());
   let rows=`<div><span>${hm(r.grossH)} trabajadas <b>−</b> ${hm(r.breakH)} descanso</span><span class="eq">= ${hm(r.hours)} pagadas</span></div>`;
-  if(r.reg>0) rows+=`<div><span>${r.isSuper?'Super (+'+c.superPct+'%)':'Normal'} ${r.reg.toFixed(2)}h × ${money(r.rate)}</span><b>${money(r.regPay)}</b></div>`;
+  if(r.reg>0) rows+=`<div><span>${r.isSuper?'Super (+'+c.superPct+'%)':'Normal'} ${r.reg.toFixed(2)}h × ${money(r.rate)}${en.rate?' <span style="color:var(--gold)">✎ manual</span>':''}</span><b>${money(r.regPay)}</b></div>`;
   if(r.ot>0){ const lbl=(r.dow===6)?('Extra sábado '+r.ot1.toFixed(2)+'h×'+c.otM1+(r.ot2>0?(' + '+r.ot2.toFixed(2)+'h×'+c.otM2):'')):('Extra '+r.ot.toFixed(2)+'h ×'+c.otM1);
     rows+=`<div><span>${lbl}</span><b>${money(r.otPay)}</b></div>`; }
   box.innerHTML=`<div class="pv-top"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700">${esc(en.job||cfg().defaultJob)} · ${DAY_ES[r.dow]}${r.isSuper?' · Super S':''}</div></div>
@@ -850,7 +870,7 @@ function renderBreakdown(p,boxId){
 function wireForm(p,boxId){
   const g=id=>document.getElementById(p+"_"+id);
   fillJobChips(p,null,()=>renderBreakdown(p,boxId));
-  ["date","start","end","brk","hol","note"].forEach(id=>g(id).addEventListener("input",()=>renderBreakdown(p,boxId)));
+  ["date","start","end","rate","brk","hol","note"].forEach(id=>g(id)&&g(id).addEventListener("input",()=>renderBreakdown(p,boxId)));
   g("date").addEventListener("input",()=>{ applyHoliday(p); renderBreakdown(p,boxId); });
   document.getElementById(p+"_brkChips").querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{
     g("brk").value=ch.dataset.brk; document.querySelectorAll("#"+p+"_brkChips .chip").forEach(c=>c.classList.remove("on"));
@@ -1372,7 +1392,8 @@ let editingId=null;
 function openEdit(id){ const e=P().entries.find(x=>String(x.id)===String(id)); if(!e) return; editingId=id;
   const g=k=>document.getElementById("ed_"+k);
   g("date").value=e.date;g("start").value=e.start;g("end").value=e.end;g("brk").value=e.brk||"";g("hol").checked=!!e.holiday;g("note").value=e.note||"";
-  fillJobChips("ed",jobOf(e),()=>renderBreakdown("ed","ed_preview"));
+  g("rate").value=e.rateOverride!=null?e.rateOverride:"";
+  fillJobChips("ed",jobOf(e),()=>renderBreakdown("ed","ed_preview"),true);
   document.querySelectorAll("#ed_brkChips .chip").forEach(c=>c.classList.toggle("on",c.dataset.brk===(e.brk||"")));
   applyHoliday("ed"); renderBreakdown("ed","ed_preview");
   const sc=document.getElementById("sheetScrim"); sc.classList.add("open"); sc.setAttribute("aria-hidden","false");
@@ -1380,7 +1401,7 @@ function openEdit(id){ const e=P().entries.find(x=>String(x.id)===String(id)); i
 function closeEdit(){ const sc=document.getElementById("sheetScrim"); sc.classList.remove("open"); sc.setAttribute("aria-hidden","true"); editingId=null; }
 function saveEdit(){ const e=P().entries.find(x=>String(x.id)===String(editingId)); if(!e) return; const f=readForm("ed");
   if(!f.date||!f.start||!f.end){ toast("⚠︎ Falta fecha u horario"); return; }
-  Object.assign(e,{date:f.date,start:f.start,end:f.end,brk:f.brk,holiday:f.holiday,note:f.note,updatedAt:now()});
+  Object.assign(e,{date:f.date,start:f.start,end:f.end,job:f.job,rateOverride:(f.rate!==""&&!isNaN(Number(f.rate)))?Number(f.rate):null,brk:f.brk,holiday:f.holiday,note:f.note,updatedAt:now()});
   save(); closeEdit(); renderAll(); toast("✓ Turno actualizado"); }
 function delEdit(){ const e=P().entries.find(x=>String(x.id)===String(editingId)); if(!e) return;
   e.deleted=true; e.updatedAt=now(); save(); closeEdit(); renderAll(); toast("Turno eliminado"); }
@@ -1390,29 +1411,34 @@ let run=(()=>{ try{return JSON.parse(localStorage.getItem(RKEY))||null;}catch(e)
 function saveRun(){ try{ run?localStorage.setItem(RKEY,JSON.stringify(run)):localStorage.removeItem(RKEY); }catch(e){} }
 let clkTimer;
 function dateOf(ts){ const d=new Date(ts); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
-let clockJob=null;
+let clockJob=null, clockRate="";
 function renderClock(){ const btn=document.getElementById("clk_btn"),time=document.getElementById("clk_time"),lab=document.getElementById("clk_label"),sub=document.getElementById("clk_sub");
   clearInterval(clkTimer);
-  { const box=document.getElementById("clk_jobChips");
+  { const box=document.getElementById("clk_jobChips"); const rateEl=document.getElementById("clk_rate");
     if(box){ const names=jobNames(); const running=!!(run&&run.profile===S.activeProfile);
       const cur=running?(run.job||cfg().defaultJob):(names.indexOf(clockJob)>=0?clockJob:(cfg().defaultJob||names[0])); clockJob=cur;
       box.innerHTML=names.map(n=>`<button class="chip ${n===cur?"on":""}" data-job="${esc(n)}" type="button"${running?" disabled":""}>${esc(n)}</button>`).join("");
-      if(!running) box.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{ clockJob=ch.dataset.job; renderClock(); });
-    } }
+      if(!running) box.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{ clockJob=ch.dataset.job; clockRate=""; renderClock(); });
+      if(rateEl){ rateEl.disabled=running;
+        rateEl.value=running?(run.rateOverride!=null?run.rateOverride:""):clockRate;
+        rateEl.placeholder="auto ("+money((cfg().jobs&&cfg().jobs[cur]?cfg().jobs[cur]:{}).baseRate||cfg().baseRate)+")";
+        if(!running) rateEl.oninput=()=>{ clockRate=rateEl.value; };
+      } } }
   if(run&&run.profile===S.activeProfile){ btn.textContent="Salir"; btn.classList.add("stop"); time.classList.add("run");
     lab.textContent="Turno en curso desde "+hhmm(run.startTs); tick(); clkTimer=setInterval(tick,1000);
   } else { btn.textContent="Entrar"; btn.classList.remove("stop"); time.classList.remove("run"); time.textContent="00:00:00";
     lab.textContent="Listo para fichar"; sub.textContent="Pulsa para iniciar tu turno. Al salir, se calcula y guarda solo."; }
   function tick(){ const ms=now()-run.startTs,s=Math.floor(ms/1000);
     time.textContent=[Math.floor(s/3600),Math.floor(s%3600/60),s%60].map(x=>String(x).padStart(2,"0")).join(":");
-    const en={date:dateOf(run.startTs),start:hhmm(run.startTs),end:hhmm(now()),brk:"",job:run.job||clockJob,holiday:cfg().autoHolidays&&!!holName(dateOf(run.startTs))};
+    const en={date:dateOf(run.startTs),start:hhmm(run.startTs),end:hhmm(now()),brk:"",job:run.job||clockJob,rateOverride:run.rateOverride,holiday:cfg().autoHolidays&&!!holName(dateOf(run.startTs))};
     sub.textContent="≈ "+money(calcEntry(en,cfg()).total)+" acumulado (descanso ya descontado)"; }
 }
 function toggleClock(){ if(run&&run.profile===S.activeProfile){
     const d=dateOf(run.startTs); const e={id:Date.now().toString(36)+Math.floor(performance.now()).toString(36),
-      date:d,start:hhmm(run.startTs),end:hhmm(now()),brk:"",job:run.job||clockJob||cfg().defaultJob,holiday:cfg().autoHolidays&&!!holName(d),note:"⏱ cronómetro",updatedAt:now()};
+      date:d,start:hhmm(run.startTs),end:hhmm(now()),brk:"",job:run.job||clockJob||cfg().defaultJob,rateOverride:run.rateOverride!=null?run.rateOverride:null,holiday:cfg().autoHolidays&&!!holName(d),note:"⏱ cronómetro",updatedAt:now()};
     P().entries.push(e); run=null; saveRun(); save(); renderClock(); renderAll(); toast("✓ Turno guardado: "+money(calcEntry(e,cfg()).total));
-  } else { run={profile:S.activeProfile,startTs:now(),job:clockJob||cfg().defaultJob}; saveRun(); renderClock(); toast("⏱ Turno iniciado · "+run.job); } }
+  } else { const rv=Number(clockRate); const rateOverride=(clockRate!==""&&!isNaN(rv))?rv:null;
+    run={profile:S.activeProfile,startTs:now(),job:clockJob||cfg().defaultJob,rateOverride}; saveRun(); renderClock(); toast("⏱ Turno iniciado · "+run.job+(rateOverride?(" @ "+money(rateOverride)+"/h"):"")); } }
 
 /* ===================== Tema / moneda / perfil ===================== */
 function applyTheme(){ const t=S.theme==="auto"?(window.matchMedia&&window.matchMedia("(prefers-color-scheme:light)").matches?"light":"dark"):S.theme;
