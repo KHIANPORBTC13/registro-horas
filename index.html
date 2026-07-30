@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#0e0f11">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Registro de Horas">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230e0f11'/%3E%3Ctext x='50' y='68' font-family='Helvetica,Arial,sans-serif' font-weight='bold' font-size='40' fill='%23ffb020' text-anchor='middle'%3EBL%3C/text%3E%3C/svg%3E">
-<title>Registro de Horas · KM & Ayleen</title>
+<meta name="apple-mobile-web-app-title" content="Libertad Financiera">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230e0f11'/%3E%3Ctext x='50' y='68' font-family='Helvetica,Arial,sans-serif' font-weight='bold' font-size='40' fill='%23ffb020' text-anchor='middle'%3ELF%3C/text%3E%3C/svg%3E">
+<title>Libertad Financiera · KM & Ayleen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -275,7 +275,7 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
 </head>
 <body>
 <header><div class="bar">
-  <div class="word bl" aria-label="Blackline Structures"><span class="beam" aria-hidden="true"></span><span class="blk"><span class="l1">BLACKLINE</span><span class="l2">STRUCTURES</span></span><small style="margin-left:8px">· KM &amp; Ayleen</small></div>
+  <div class="word bl" aria-label="Libertad Financiera"><span class="beam" aria-hidden="true"></span><span class="blk"><span class="l1">LIBERTAD</span><span class="l2">FINANCIERA</span></span><small style="margin-left:8px">· KM &amp; Ayleen</small></div>
   <div class="grow"></div>
   <div class="ctl">
     <select id="profileSel" class="sel" aria-label="Cambiar perfil"></select>
@@ -378,6 +378,7 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
   <div class="card" id="clockView">
     <div class="clock">
       <div class="eyebrow" id="clk_label">Listo para fichar</div>
+      <div class="chips" id="clk_jobChips" style="justify-content:center"></div>
       <div class="time" id="clk_time">00:00:00</div>
       <button class="bigbtn" id="clk_btn" type="button">Entrar</button>
       <div class="hint" id="clk_sub" style="text-align:center">Pulsa para iniciar tu turno. Al salir, se calcula y guarda solo.</div>
@@ -431,6 +432,9 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
 
   <div class="block-h"><span class="sec-n">01</span><h2 class="sec">Tu hora vale</h2></div>
   <div class="card intel" id="rateCard"><div id="rateHero"></div></div>
+  <div class="card" id="jobBreakCard" style="margin-top:16px" hidden><h2 class="sec">Por trabajo</h2>
+    <p class="sub" style="margin:2px 0 14px">Cuánto aporta cada empleo, según tus turnos registrados.</p>
+    <div id="jobBreak"></div></div>
 
   <div class="card" style="margin-top:16px"><h2 class="sec">Análisis de ingresos</h2>
     <p class="sub" style="margin:2px 0 14px">Lo que realmente recibes, cruzado con lo calculado.</p>
@@ -454,7 +458,7 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
     <div class="fg">
       <label class="f">Fecha del depósito<input type="date" class="inp" id="pay_date"></label>
       <label class="f">Monto recibido (AUD)<input type="number" class="inp" id="pay_amount" step="0.01" placeholder="0.00"></label>
-      <label class="f">Fuente<select class="inp" id="pay_source"><option>Blackline</option><option>Green &amp; Clean</option><option>ABN</option><option>Bono</option><option>Otro</option></select></label>
+      <label class="f">Fuente<select class="inp" id="pay_source"><option>Blackline</option><option>Green &amp; Clean</option><option>Comfort Inn</option><option>ABN</option><option>Bono</option><option>Otro</option></select></label>
       <label class="f">Impuesto retenido (opc.)<input type="number" class="inp" id="pay_tax" step="0.01" placeholder="0.00"></label>
       <label class="f">Super (opc.)<input type="number" class="inp" id="pay_super" step="0.01" placeholder="0.00"></label>
       <label class="f">Nota<input type="text" class="inp" id="pay_note" placeholder="opcional"></label>
@@ -490,32 +494,54 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
   <div class="card">
     <h2 class="sec">Ajustes de <span id="cfg_name" style="color:var(--gold)"></span></h2>
 
-    <h3 class="lbl">Tarifa y moneda</h3>
+    <h3 class="lbl">Mis trabajos</h3>
+    <div class="chips" id="cfg_jobChips"></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn ghost" id="c_jobAdd" type="button" style="min-height:44px">＋ Añadir trabajo</button>
+      <button class="btn ghost" id="c_jobDefault" type="button" style="min-height:44px">★ Marcar principal</button>
+      <button class="btn danger" id="c_jobDel" type="button" style="min-height:44px">Eliminar</button>
+    </div>
+    <p class="hint" id="c_jobHint" style="margin-top:10px"></p>
+
+    <h3 class="lbl">Tarifa de <span id="c_jobName" style="color:var(--gold)"></span></h3>
     <div class="fg">
       <label class="f">Tarifa base (AUD/h)<input type="number" id="c_base" class="inp" step="0.5"></label>
-      <label class="f">1 USD = ? AUD<input type="number" id="c_rate" class="inp" step="0.01"></label>
       <label class="f">Descanso no pagado por turno (min)<input type="number" id="c_break" class="inp" step="5"></label>
-      <label class="f">Inicio de quincena (ancla)<input type="date" id="c_anchor" class="inp"></label>
-      <label class="f">Meta de ingreso mensual (AUD)<input type="number" id="c_goal" class="inp" step="50" placeholder="0 = sin meta"></label>
-      <label class="f">Tolerancia de pago (%)<input type="number" id="c_tolPct" class="inp" step="0.5" placeholder="2"></label>
     </div>
 
-    <h3 class="lbl">Recargo Super S (madrugada)</h3>
+    <h3 class="lbl">Recargo madrugada (Super S)</h3>
     <div class="fg">
-      <label class="f">Recargo (%)<input type="number" id="c_superPct" class="inp" step="1"></label>
+      <label class="f">Recargo (%)<input type="number" id="c_superPct" class="inp" step="1" placeholder="0 = sin recargo"></label>
       <label class="f">Si entra antes de<input type="time" id="c_superBefore" class="inp"></label>
     </div>
-    <p class="hint" style="margin-top:8px">Si el turno empieza antes de esa hora, TODAS sus horas se pagan con el recargo (antes de 6am → +30% = $41.60).</p>
+    <p class="hint" style="margin-top:8px">Si el turno empieza antes de esa hora, TODAS sus horas llevan el recargo. En Blackline: antes de 6am → +30% ($41.60). Pon <b>0%</b> si ese trabajo no lo paga.</p>
 
     <h3 class="lbl">Horas extra (overtime)</h3>
     <div class="fg">
       <label class="f">A partir de (h/día)<input type="number" id="c_otThresh" class="inp" step="0.5"></label>
-      <label class="f">Viernes: a partir de (h)<input type="number" id="c_otThreshFri" class="inp" step="0.5"></label>
-      <label class="f">Mult. normal (×)<input type="number" id="c_otM1" class="inp" step="0.1"></label>
+      <label class="f">Viernes: a partir de (h)<input type="number" id="c_otThreshFri" class="inp" step="0.5" placeholder="0 = igual"></label>
+      <label class="f">Multiplicador (×)<input type="number" id="c_otM1" class="inp" step="0.1"></label>
+    </div>
+
+    <h3 class="lbl">Fin de semana</h3>
+    <label class="check"><input type="checkbox" id="c_satAll"> El sábado entero se paga con recargo (estilo Blackline)</label>
+    <div class="fg" style="margin-top:12px">
       <label class="f">Sábado: 1ª franja (h)<input type="number" id="c_satTier" class="inp" step="0.5"></label>
       <label class="f">Sábado: resto (×)<input type="number" id="c_otM2" class="inp" step="0.1"></label>
     </div>
-    <p class="hint" style="margin-top:8px">Lun–Jue: lo que pase de 8h ×1.5. Viernes: a partir de 6h ×1.5. Sábado: TODO con recargo — primeras 3h ×1.5, resto ×2.</p>
+    <div class="fg" style="margin-top:12px">
+      <label class="f">Sábado normal (×)<input type="number" id="c_satMult" class="inp" step="0.05" placeholder="1"></label>
+      <label class="f">Domingo (×)<input type="number" id="c_sunMult" class="inp" step="0.05" placeholder="1"></label>
+    </div>
+    <p class="hint" style="margin-top:8px"><b>Con la casilla activada</b> (Blackline): todo el sábado con recargo — 1ª franja ×1.5 y el resto ×2. <b>Sin activar</b>: el sábado y el domingo se pagan con su multiplicador de arriba (p. ej. Comfort Inn: sábado ×1.2, domingo ×1.4). Deja 1 si no hay recargo.</p>
+
+    <h3 class="lbl">General (todos los trabajos)</h3>
+    <div class="fg">
+      <label class="f">1 USD = ? AUD<input type="number" id="c_rate" class="inp" step="0.01"></label>
+      <label class="f">Inicio de quincena (ancla)<input type="date" id="c_anchor" class="inp"></label>
+      <label class="f">Meta de ingreso mensual (AUD)<input type="number" id="c_goal" class="inp" step="50" placeholder="0 = sin meta"></label>
+      <label class="f">Tolerancia de pago (%)<input type="number" id="c_tolPct" class="inp" step="0.5" placeholder="2"></label>
+    </div>
     <div class="btn-row"><button class="btn primary" id="c_save" type="button">Guardar ajustes</button></div>
   </div>
 
@@ -588,20 +614,38 @@ const AU_HOL_2026={'2026-01-01':'Año Nuevo','2026-01-26':'Australia Day','2026-
 function holName(d){ return AU_HOL_2026[d]||null; }
 
 /* ===================== Estado ===================== */
+function jobBlackline(base){ return {baseRate:base,unpaidBreakMin:30,superBefore:"06:00",superPct:30,otThresh:8,otThreshFri:6,otM1:1.5,otM2:2,satTierHours:3,satAllPremium:true}; }
+function jobPlain(base,satM,sunM){ return {baseRate:base,unpaidBreakMin:30,superBefore:"06:00",superPct:0,otThresh:8,otThreshFri:0,otM1:1.5,otM2:2,satTierHours:0,satAllPremium:false,satMult:satM||1,sunMult:sunM||1}; }
 function defaultSettings(base){ return {
   currency:"AUD", audPerUsd:1.50, baseRate:base, unpaidBreakMin:30, anchor:"2026-05-22",
   superBefore:"06:00", superPct:30,
   otThresh:8, otThreshFri:6, otM1:1.5, otM2:2, satTierHours:3,
+  jobs:{"Blackline":jobBlackline(base),"Green & Clean":jobPlain(base)}, defaultJob:"Blackline",
   goalMonthly:0, tolPct:2, recon:{}, milestonesSeen:[], autoHolidays:false, updatedAt:0
 };}
-function blankState(){ return { v:2, activeProfile:"KM", theme:"auto",
+function jobRules(c,job){ const js=c&&c.jobs; if(!js) return c;
+  const j=js[job]||js[c.defaultJob]||js[Object.keys(js)[0]];
+  return j?Object.assign({},c,j):c; }
+function jobNames(){ const c=cfg(); return Object.keys(c.jobs||{}); }
+function jobOf(e){ const c=cfg(); return (e&&e.job&&(c.jobs||{})[e.job])?e.job:(c.defaultJob||jobNames()[0]||"Trabajo"); }
+function ayleenJobs(){ return {"Comfort Inn":jobPlain(33.85,1.2,1.4),"ABN":jobPlain(30)}; }
+function blankState(){ const ay=defaultSettings(33.85); ay.jobs=ayleenJobs(); ay.defaultJob="Comfort Inn";
+  return { v:2, activeProfile:"KM", theme:"auto",
   profiles:{ "KM":{settings:defaultSettings(32),entries:[],depositsV2:{},payments:[]},
-             "Ayleen":{settings:defaultSettings(28),entries:[],depositsV2:{},payments:[]} } };}
+             "Ayleen":{settings:ay,entries:[],depositsV2:{},payments:[]} } };}
 function migrate(st){
   if(!st||!st.profiles) return blankState();
   if(!st.theme) st.theme="auto";
   for(const pid in st.profiles){ const p=st.profiles[pid];
+    const hadJobs=!!(p.settings&&p.settings.jobs&&Object.keys(p.settings.jobs).length);
     p.settings=Object.assign(defaultSettings(p.settings&&p.settings.baseRate||30), p.settings||{});
+    if(!hadJobs){ const s0=p.settings;
+      p.settings.jobs = (pid==="Ayleen")
+        ? ayleenJobs()
+        : {"Blackline":{baseRate:s0.baseRate,unpaidBreakMin:s0.unpaidBreakMin,superBefore:s0.superBefore,superPct:s0.superPct,otThresh:s0.otThresh,otThreshFri:s0.otThreshFri,otM1:s0.otM1,otM2:s0.otM2,satTierHours:s0.satTierHours,satAllPremium:true},
+           "Green & Clean":jobPlain(s0.baseRate)};
+    }
+    if(!p.settings.defaultJob||!p.settings.jobs[p.settings.defaultJob]) p.settings.defaultJob=Object.keys(p.settings.jobs)[0];
     p.entries=(p.entries||[]).map(e=>Object.assign({updatedAt:1},e));
     if(!p.depositsV2){ p.depositsV2={}; const d=p.deposits||{}; for(const k in d) p.depositsV2[k]={v:d[k],ts:1}; }
     if(!p.payments){ p.payments=[]; const anc=parseD(p.settings.anchor||"2026-06-09"); for(const k in (p.depositsV2||{})){ const dv=p.depositsV2[k]; if(dv&&dv.v!=null){ const dd=ymdU(anc+Number(k)*14*864e5); p.payments.push({id:"mig"+k,date:dd,amount:dv.v,source:"Blackline",tax:null,superA:null,note:"migrado",updatedAt:1}); } } }
@@ -615,6 +659,15 @@ let S=load();
   let n=0; R.forEach(r=>{ if(!have.has(r[0])){ p.entries.push({id:"km-"+r[0]+"-0600",date:r[0],start:r[1],end:r[2],brk:r[3],holiday:false,note:"Excel · 18 jun–2 jul",updatedAt:Date.now()}); n++; } });
   if(!(p.payments||[]).some(x=>!x.deleted&&x.date==="2026-07-02")){ (p.payments=p.payments||[]).push({id:"pay-2026-07-02",date:"2026-07-02",amount:2752,source:"Blackline",tax:null,superA:null,note:"Excel · recibido",updatedAt:Date.now()}); n++; }
   if(n){ localStorage.setItem(KEY,JSON.stringify(S)); }
+}catch(e){} })();
+(function ensureAyleen(){ try{ const p=S.profiles&&S.profiles.Ayleen; if(!p) return;
+  p.payments=p.payments||[]; const have=new Set(p.payments.map(x=>String(x.id))); let n=0;
+  const PS=[["ay-ps-11774","2026-06-10",1242.34,132,164.92,"Payslip EFT 11774 · 27 may–09 jun · 39.32h · bruto $1,374.34"],
+            ["ay-ps-11807","2026-06-24",1319.41,150,176.33,"Payslip EFT 11807 · 10–23 jun · 42.41h · bruto $1,469.41"],
+            ["ay-ps-11931","2026-07-22",1600.86,216,218.02,"Payslip EFT 11931 · 08–21 jul · 47.91h · bruto $1,816.86"]];
+  PS.forEach(r=>{ if(!have.has(r[0])){ p.payments.push({id:r[0],date:r[1],amount:r[2],source:"Comfort Inn",tax:r[3],superA:r[4],note:r[5],updatedAt:Date.now()}); n++; } });
+  if(!have.has("ay-abn-1069")){ p.payments.push({id:"ay-abn-1069",date:"2026-07-22",amount:693,source:"ABN",tax:null,superA:null,note:"Factura 1069 · 21h × $30 + GST $63 · reservar $126 (20%) para impuesto · ajusta la fecha si difiere",updatedAt:Date.now()}); n++; }
+  if(n) localStorage.setItem(KEY,JSON.stringify(S));
 }catch(e){} })();
 function load(){ try{ const r=localStorage.getItem(KEY); if(r) return migrate(JSON.parse(r)); }catch(e){} return seedState(); }
 function persist(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ toast("⚠︎ No se pudo guardar"); } }
@@ -640,20 +693,23 @@ function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.get
 function thisMonth(){ return todayStr().slice(0,7); }
 
 function nightOverlap(s,e,ns,ne){ let t=0; for(let d=-1;d<=1;d++){ const a=ns+d*1440,b=(ne<=ns?ne+1440:ne)+d*1440; t+=Math.max(0,Math.min(e,b)-Math.max(s,a)); } return t; }
-function calcEntry(en,c){
+function calcEntry(en,c0){
+  const c=jobRules(c0,en&&en.job);
   let s=toMin(en.start),e=toMin(en.end); if(e<=s) e+=1440;
   const brk=(en.brk!=null&&en.brk!=="")?Number(en.brk):c.unpaidBreakMin;
   const grossH=(e-s)/60, breakH=Math.min(brk,e-s)/60, hours=Math.max(0,(e-s)-brk)/60;
   const dow=new Date(en.date+"T00:00:00").getDay();
   const isSuper = s < toMin(c.superBefore||"06:00");
   const sp=(c.superPct||0)/100;
-  const rate = c.baseRate*(isSuper?(1+sp):1);
+  const wkMult = (dow===0)?(c.sunMult||1):((dow===6&&c.satAllPremium===false)?(c.satMult||1):1);
+  const dayMult = isSuper?(1+sp):wkMult;
+  const rate = c.baseRate*dayMult;
   const th=(dow===5&&c.otThreshFri!=null&&c.otThreshFri>0)?c.otThreshFri:c.otThresh;
   let reg,ot,ot1,ot2;
-  if(dow===6){ reg=0; ot=hours; ot1=Math.min(ot,c.satTierHours); ot2=ot-ot1; }
+  if(dow===6&&c.satAllPremium!==false){ reg=0; ot=hours; ot1=Math.min(ot,c.satTierHours); ot2=ot-ot1; }
   else { reg=Math.min(hours,th); ot=Math.max(0,hours-th); ot1=ot; ot2=0; }
   const regPay=reg*rate, otPay=ot1*c.baseRate*c.otM1+ot2*c.baseRate*c.otM2;
-  return {grossH,breakH,hours,reg,ot,ot1,ot2,regPay,otPay,nightH:0,nightPay:0,total:regPay+otPay,rate,isSuper,dayMult:(isSuper?(1+sp):1),dow};
+  return {grossH,breakH,hours,reg,ot,ot1,ot2,regPay,otPay,nightH:0,nightPay:0,total:regPay+otPay,rate,isSuper,dayMult,dow};
 }
 function parseD(s){ const a=String(s).split("-"); return Date.UTC(+a[0],(+a[1]||1)-1,+a[2]||1); }
 function ymdU(ms){ const d=new Date(ms); return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0"); }
@@ -706,6 +762,9 @@ function randomCode(){ const a="abcdefghijkmnpqrstuvwxyz23456789",x=new Uint8Arr
 
 /* ===================== Formulario reutilizable ===================== */
 function formHTML(p){ return `
+  <div style="font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px">Trabajo</div>
+  <div class="chips" id="${p}_jobChips" style="margin-bottom:16px"></div>
+  <input type="hidden" id="${p}_job">
   <div class="fg">
     <label class="f">Fecha<input type="date" class="inp" id="${p}_date"></label>
     <label class="f">Entrada<input type="time" class="inp" id="${p}_start"></label>
@@ -726,24 +785,31 @@ function formHTML(p){ return `
   </div>`;
 }
 function readForm(p){ const g=id=>document.getElementById(p+"_"+id);
-  return { date:g("date").value, start:g("start").value, end:g("end").value,
+  return { date:g("date").value, start:g("start").value, end:g("end").value, job:g("job").value||cfg().defaultJob,
     brk:g("brk").value, holiday:g("hol").checked, note:g("note").value }; }
+function fillJobChips(p,sel,after){ const box=document.getElementById(p+"_jobChips"); if(!box) return;
+  const names=jobNames(); const cur=(names.indexOf(sel)>=0)?sel:(cfg().defaultJob||names[0]);
+  const inp=document.getElementById(p+"_job"); if(inp) inp.value=cur;
+  box.innerHTML=names.map(n=>`<button class="chip ${n===cur?"on":""}" data-job="${esc(n)}" type="button">${esc(n)}</button>`).join("");
+  box.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{ fillJobChips(p,ch.dataset.job,after); if(after) after(); });
+}
 function applyHoliday(p){ const g=id=>document.getElementById(p+"_"+id);
   const nm=cfg().autoHolidays?holName(g("date").value):null; const tag=g("holName");
   if(nm){ g("hol").checked=true; tag.textContent=nm; tag.hidden=false; } else { tag.hidden=true; } }
 function renderBreakdown(p,boxId){
   const box=document.getElementById(boxId); const en=readForm(p);
   if(!en.date||!en.start||!en.end){ box.innerHTML='<span class="hint">Completa fecha y horas para ver el cálculo…</span>'; return; }
-  const c=cfg(); const r=calcEntry(en,c);
+  const c=jobRules(cfg(),en.job); const r=calcEntry(en,cfg());
   let rows=`<div><span>${hm(r.grossH)} trabajadas <b>−</b> ${hm(r.breakH)} descanso</span><span class="eq">= ${hm(r.hours)} pagadas</span></div>`;
   if(r.reg>0) rows+=`<div><span>${r.isSuper?'Super (+'+c.superPct+'%)':'Normal'} ${r.reg.toFixed(2)}h × ${money(r.rate)}</span><b>${money(r.regPay)}</b></div>`;
   if(r.ot>0){ const lbl=(r.dow===6)?('Extra sábado '+r.ot1.toFixed(2)+'h×'+c.otM1+(r.ot2>0?(' + '+r.ot2.toFixed(2)+'h×'+c.otM2):'')):('Extra '+r.ot.toFixed(2)+'h ×'+c.otM1);
     rows+=`<div><span>${lbl}</span><b>${money(r.otPay)}</b></div>`; }
-  box.innerHTML=`<div class="pv-top"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700">Pago del turno · ${DAY_ES[r.dow]}${r.isSuper?' · Super S':''}</div></div>
+  box.innerHTML=`<div class="pv-top"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700">${esc(en.job||cfg().defaultJob)} · ${DAY_ES[r.dow]}${r.isSuper?' · Super S':''}</div></div>
     <div class="pv-amt">${money(r.total)}</div></div><div class="ledger">${rows}</div>`;
 }
 function wireForm(p,boxId){
   const g=id=>document.getElementById(p+"_"+id);
+  fillJobChips(p,null,()=>renderBreakdown(p,boxId));
   ["date","start","end","brk","hol","note"].forEach(id=>g(id).addEventListener("input",()=>renderBreakdown(p,boxId)));
   g("date").addEventListener("input",()=>{ applyHoliday(p); renderBreakdown(p,boxId); });
   document.getElementById(p+"_brkChips").querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{
@@ -913,7 +979,8 @@ function renderHeatmap(){
 function renderHomeClock(){ const btn=document.getElementById("hc_btn"); if(!btn) return;
   const lab=document.getElementById("hc_label"), st=document.getElementById("hc_status"), sub=document.getElementById("hc_sub");
   if(run&&run.profile===S.activeProfile){ btn.textContent="Salir"; btn.classList.add("stop"); lab.textContent="⏱ Turno en curso";
-    const en={date:dateOf(run.startTs),start:hhmm(run.startTs),end:hhmm(now()),brk:"",holiday:false};
+    const en={date:dateOf(run.startTs),start:hhmm(run.startTs),end:hhmm(now()),brk:"",job:run.job||clockJob,holiday:false};
+    lab.textContent="⏱ Turno en curso · "+(run.job||clockJob||"");
     st.textContent="Desde "+hhmm(run.startTs)+" · ≈ "+money(calcEntry(en,cfg()).total);
     sub.textContent="Toca Salir al terminar. El descanso se descuenta solo.";
   } else { btn.textContent="Entrar"; btn.classList.remove("stop"); lab.textContent="Listo para fichar";
@@ -942,10 +1009,11 @@ function renderHistorial(){
   if(!rows.length){ t.innerHTML=`<tbody><tr><td><div class="empty">Sin turnos ${mf?"este mes":""}. Ve a <b>Fichar</b>.</div></td></tr></tbody>`; return; }
   let b=""; for(const e of rows){ const r=calcEntry(e,c);
     b+=`<tr data-id="${esc(e.id)}"><td>${fmtShort(e.date)} <span style="color:var(--faint)">${DAY_ES[r.dow]}</span> ${e.holiday?'<span class="badge gold">fer</span>':''}</td>
+      <td><span class="badge ${jobOf(e)===cfg().defaultJob?'gold':'muted'}">${esc(jobOf(e))}</span></td>
       <td class="num">${esc(e.start)}–${esc(e.end)}</td><td class="num">${hm(r.hours)}</td><td class="num">×${r.dayMult}</td>
       <td class="num ${r.ot>0?'pos':''}">${r.ot>0?hm(r.ot):'·'}</td><td class="amt">${money(r.regPay+r.nightPay)}</td>
       <td class="amt ${r.otPay>0?'pos':''}">${r.otPay>0?money(r.otPay):'·'}</td><td class="amt gld">${money(r.total)}</td></tr>`; }
-  t.innerHTML=`<thead><tr><th>Fecha</th><th>Horario</th><th>Pagadas</th><th>Día</th><th>Extra</th><th>Normal</th><th>Extra $</th><th>Total</th></tr></thead><tbody>${b}</tbody>`;
+  t.innerHTML=`<thead><tr><th>Fecha</th><th>Trabajo</th><th>Horario</th><th>Pagadas</th><th>Día</th><th>Extra</th><th>Normal</th><th>Extra $</th><th>Total</th></tr></thead><tbody>${b}</tbody>`;
   t.querySelectorAll("tbody tr[data-id]").forEach(tr=>tr.onclick=()=>openEdit(tr.dataset.id));
 }
 
@@ -974,7 +1042,7 @@ function renderIngresos(){
     ["Super",money(totSup),"acumulado"],
     ["Te deben",money(owed),owed>0.5?"acumulado":"al día ✓"]];
   document.getElementById("in_kpis").innerHTML=kpis.map(x=>`<div class="kpi"><div class="k-l">${x[0]}</div><div class="k-v">${x[1]}</div><div class="k-s">${x[2]}</div></div>`).join("");
-  renderRateHero();
+  renderRateHero(); renderJobBreak();
   let html="";
   if(owed>0.5) html+=ins("warn","⚠︎",`<b>Te deben ${money(owed)} en total.</b><small>Toca una quincena roja en la tabla para cuadrarla y generar el reclamo.</small>`);
   if(nF>0){ html+=ins("info","📈",`<b>Run-rate anual: ${money((totRec/nF)*26)}</b><small>Proyección a 26 quincenas al ritmo recibido.</small>`); }
@@ -984,6 +1052,21 @@ function renderIngresos(){
   const inI=document.getElementById("in_insights"); inI.innerHTML=html;
   inI.querySelectorAll(".cuadLink").forEach(a=>a.onclick=ev=>{ev.preventDefault();openCuadrar(Number(a.dataset.fi));});
   renderIncomeCharts(c,calcByF,recF,y); renderCompare(c,calcByF,recF); renderPaymentsTable();
+}
+function renderJobBreak(){ const c=cfg(); const card=document.getElementById("jobBreakCard"), box=document.getElementById("jobBreak");
+  if(!card||!box) return;
+  const y=String(new Date().getFullYear()), mo=thisMonth();
+  const ents=liveEntries().filter(e=> inPeriod==="all"?true: inPeriod==="year"? e.date.slice(0,4)===y : e.date.slice(0,7)===mo);
+  const agg={}; ents.forEach(e=>{ const j=jobOf(e), r=calcEntry(e,c); const a=agg[j]||(agg[j]={h:0,tot:0,n:0}); a.h+=r.hours; a.tot+=r.total; a.n++; });
+  const names=Object.keys(agg);
+  if(names.length<1){ card.hidden=true; box.innerHTML=""; return; }
+  card.hidden=false;
+  const tot=names.reduce((x,n)=>x+agg[n].tot,0)||1;
+  box.innerHTML=names.sort((a,b)=>agg[b].tot-agg[a].tot).map(n=>{ const a=agg[n], pc=Math.round(a.tot/tot*100);
+    return `<div class="insight" style="align-items:center">
+      <div class="ic" style="background:var(--gold-glow);color:var(--gold);font-family:var(--mono);font-size:13px;font-weight:600">${pc}%</div>
+      <div class="tx" style="flex:1"><b>${esc(n)}</b><small>${hm(a.h)} · ${a.n} turno(s) · ${a.h>0?money(a.tot/a.h)+"/h real":"—"}</small></div>
+      <div class="amt gld" style="font-size:16px;white-space:nowrap">${money(a.tot)}</div></div>`; }).join("");
 }
 function renderRateHero(){
   const c=cfg(); const box=document.getElementById("rateHero"); if(!box) return;
@@ -1133,20 +1216,43 @@ function savePayment(){ const f=payForm(); if(!f.date||f.amount===""){ toast("�
 function deletePayment(){ if(!editingPay) return; const p=P().payments.find(x=>String(x.id)===String(editingPay)); if(p){p.deleted=true;p.updatedAt=now();} save(); clearPayForm(); renderIngresos(); toast("Pago eliminado"); }
 
 /* ===================== Ajustes ===================== */
-function loadConfigForm(){ const c=cfg(); const v=(id,val)=>document.getElementById(id).value=val;
+let editJob=null;
+function curEditJob(){ const c=cfg(); const names=Object.keys(c.jobs||{}); if(!names.length) return null;
+  if(names.indexOf(editJob)<0) editJob=c.defaultJob||names[0]; return editJob; }
+function renderJobChips(){ const c=cfg(); const box=document.getElementById("cfg_jobChips"); if(!box) return;
+  const cur=curEditJob(); const names=Object.keys(c.jobs||{});
+  box.innerHTML=names.map(n=>`<button class="chip ${n===cur?"on":""}" data-j="${esc(n)}" type="button">${esc(n)}${n===c.defaultJob?" ★":""}</button>`).join("");
+  box.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{ editJob=ch.dataset.j; loadConfigForm(); });
+  const nm=document.getElementById("c_jobName"); if(nm) nm.textContent=cur||"";
+  const h=document.getElementById("c_jobHint");
+  if(h) h.innerHTML=`Cada trabajo guarda su propia tarifa y reglas. El de la ★ es el que sale marcado al fichar. Turnos registrados en <b>${esc(cur||"")}</b>: <b>${liveEntries().filter(e=>jobOf(e)===cur).length}</b>.`;
+}
+function loadConfigForm(){ const c=cfg(); const cur=curEditJob(); const j=(c.jobs||{})[cur]||{};
+  const v=(id,val)=>{const el=document.getElementById(id); if(el) el.value=val;};
   document.getElementById("cfg_name").textContent=S.activeProfile;
-  v("c_base",c.baseRate);v("c_rate",c.audPerUsd);v("c_break",c.unpaidBreakMin);v("c_anchor",c.anchor);v("c_goal",c.goalMonthly||"");v("c_tolPct",c.tolPct);
-  v("c_superPct",c.superPct);v("c_superBefore",c.superBefore);
-  v("c_otThresh",c.otThresh);v("c_otThreshFri",c.otThreshFri!=null?c.otThreshFri:6);v("c_otM1",c.otM1);v("c_satTier",c.satTierHours);v("c_otM2",c.otM2);
+  renderJobChips();
+  v("c_base",j.baseRate);v("c_break",j.unpaidBreakMin);
+  v("c_superPct",j.superPct!=null?j.superPct:0);v("c_superBefore",j.superBefore||"06:00");
+  v("c_otThresh",j.otThresh);v("c_otThreshFri",j.otThreshFri||0);v("c_otM1",j.otM1);v("c_satTier",j.satTierHours);v("c_otM2",j.otM2);
+  const sa=document.getElementById("c_satAll"); if(sa) sa.checked=j.satAllPremium!==false;
+  v("c_satMult",j.satMult!=null?j.satMult:1); v("c_sunMult",j.sunMult!=null?j.sunMult:1);
+  v("c_rate",c.audPerUsd);v("c_anchor",c.anchor);v("c_goal",c.goalMonthly||"");v("c_tolPct",c.tolPct);
   document.querySelectorAll(".chips [data-th]").forEach(b=>b.classList.toggle("on",b.dataset.th===S.theme));
 }
-function saveConfigForm(){ const c=cfg(); const n=id=>Number(document.getElementById(id).value);
-  c.baseRate=n("c_base");c.audPerUsd=n("c_rate")||1;c.unpaidBreakMin=n("c_break");c.anchor=document.getElementById("c_anchor").value||c.anchor;
+function saveConfigForm(){ const c=cfg(); const cur=curEditJob(); const n=id=>Number(document.getElementById(id).value);
+  if(cur&&c.jobs&&c.jobs[cur]){ const j=c.jobs[cur];
+    j.baseRate=n("c_base")||j.baseRate; j.unpaidBreakMin=n("c_break");
+    j.superPct=n("c_superPct")||0; j.superBefore=document.getElementById("c_superBefore").value||"06:00";
+    j.otThresh=n("c_otThresh")||8; j.otThreshFri=n("c_otThreshFri")||0; j.otM1=n("c_otM1")||1;
+    j.satTierHours=n("c_satTier")||0; j.otM2=n("c_otM2")||1;
+    j.satAllPremium=!!(document.getElementById("c_satAll")||{}).checked;
+    j.satMult=n("c_satMult")||1; j.sunMult=n("c_sunMult")||1;
+    if(cur===c.defaultJob) c.baseRate=j.baseRate;
+  }
+  c.audPerUsd=n("c_rate")||1; c.anchor=document.getElementById("c_anchor").value||c.anchor;
   c.goalMonthly=n("c_goal")||0; c.tolPct=n("c_tolPct")||2;
-  c.superPct=n("c_superPct");c.superBefore=document.getElementById("c_superBefore").value||"06:00";
-  c.otThresh=n("c_otThresh");c.otThreshFri=n("c_otThreshFri")||6;c.otM1=n("c_otM1");c.satTierHours=n("c_satTier");c.otM2=n("c_otM2");
   c.updatedAt=now();
-  save(); toast("✓ Ajustes guardados"); renderAll();
+  save(); toast("✓ Ajustes de "+cur+" guardados"); renderAll();
 }
 
 /* ===================== Edición (hoja) ===================== */
@@ -1154,6 +1260,7 @@ let editingId=null;
 function openEdit(id){ const e=P().entries.find(x=>String(x.id)===String(id)); if(!e) return; editingId=id;
   const g=k=>document.getElementById("ed_"+k);
   g("date").value=e.date;g("start").value=e.start;g("end").value=e.end;g("brk").value=e.brk||"";g("hol").checked=!!e.holiday;g("note").value=e.note||"";
+  fillJobChips("ed",jobOf(e),()=>renderBreakdown("ed","ed_preview"));
   document.querySelectorAll("#ed_brkChips .chip").forEach(c=>c.classList.toggle("on",c.dataset.brk===(e.brk||"")));
   applyHoliday("ed"); renderBreakdown("ed","ed_preview");
   const sc=document.getElementById("sheetScrim"); sc.classList.add("open"); sc.setAttribute("aria-hidden","false");
@@ -1171,22 +1278,29 @@ let run=(()=>{ try{return JSON.parse(localStorage.getItem(RKEY))||null;}catch(e)
 function saveRun(){ try{ run?localStorage.setItem(RKEY,JSON.stringify(run)):localStorage.removeItem(RKEY); }catch(e){} }
 let clkTimer;
 function dateOf(ts){ const d=new Date(ts); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+let clockJob=null;
 function renderClock(){ const btn=document.getElementById("clk_btn"),time=document.getElementById("clk_time"),lab=document.getElementById("clk_label"),sub=document.getElementById("clk_sub");
   clearInterval(clkTimer);
+  { const box=document.getElementById("clk_jobChips");
+    if(box){ const names=jobNames(); const running=!!(run&&run.profile===S.activeProfile);
+      const cur=running?(run.job||cfg().defaultJob):(names.indexOf(clockJob)>=0?clockJob:(cfg().defaultJob||names[0])); clockJob=cur;
+      box.innerHTML=names.map(n=>`<button class="chip ${n===cur?"on":""}" data-job="${esc(n)}" type="button"${running?" disabled":""}>${esc(n)}</button>`).join("");
+      if(!running) box.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{ clockJob=ch.dataset.job; renderClock(); });
+    } }
   if(run&&run.profile===S.activeProfile){ btn.textContent="Salir"; btn.classList.add("stop"); time.classList.add("run");
     lab.textContent="Turno en curso desde "+hhmm(run.startTs); tick(); clkTimer=setInterval(tick,1000);
   } else { btn.textContent="Entrar"; btn.classList.remove("stop"); time.classList.remove("run"); time.textContent="00:00:00";
     lab.textContent="Listo para fichar"; sub.textContent="Pulsa para iniciar tu turno. Al salir, se calcula y guarda solo."; }
   function tick(){ const ms=now()-run.startTs,s=Math.floor(ms/1000);
     time.textContent=[Math.floor(s/3600),Math.floor(s%3600/60),s%60].map(x=>String(x).padStart(2,"0")).join(":");
-    const en={date:dateOf(run.startTs),start:hhmm(run.startTs),end:hhmm(now()),brk:"",holiday:cfg().autoHolidays&&!!holName(dateOf(run.startTs))};
+    const en={date:dateOf(run.startTs),start:hhmm(run.startTs),end:hhmm(now()),brk:"",job:run.job||clockJob,holiday:cfg().autoHolidays&&!!holName(dateOf(run.startTs))};
     sub.textContent="≈ "+money(calcEntry(en,cfg()).total)+" acumulado (descanso ya descontado)"; }
 }
 function toggleClock(){ if(run&&run.profile===S.activeProfile){
     const d=dateOf(run.startTs); const e={id:Date.now().toString(36)+Math.floor(performance.now()).toString(36),
-      date:d,start:hhmm(run.startTs),end:hhmm(now()),brk:"",holiday:cfg().autoHolidays&&!!holName(d),note:"⏱ cronómetro",updatedAt:now()};
+      date:d,start:hhmm(run.startTs),end:hhmm(now()),brk:"",job:run.job||clockJob||cfg().defaultJob,holiday:cfg().autoHolidays&&!!holName(d),note:"⏱ cronómetro",updatedAt:now()};
     P().entries.push(e); run=null; saveRun(); save(); renderClock(); renderAll(); toast("✓ Turno guardado: "+money(calcEntry(e,cfg()).total));
-  } else { run={profile:S.activeProfile,startTs:now()}; saveRun(); renderClock(); toast("⏱ Turno iniciado"); } }
+  } else { run={profile:S.activeProfile,startTs:now(),job:clockJob||cfg().defaultJob}; saveRun(); renderClock(); toast("⏱ Turno iniciado · "+run.job); } }
 
 /* ===================== Tema / moneda / perfil ===================== */
 function applyTheme(){ const t=S.theme==="auto"?(window.matchMedia&&window.matchMedia("(prefers-color-scheme:light)").matches?"light":"dark"):S.theme;
@@ -1287,6 +1401,18 @@ window.addEventListener("DOMContentLoaded",()=>{
 
   // ajustes
   document.getElementById("c_save").onclick=saveConfigForm;
+  document.getElementById("c_jobAdd").onclick=()=>{ const nm=(prompt("Nombre del trabajo (p. ej. Green & Clean):")||"").trim();
+    if(!nm) return; const c=cfg(); if(!c.jobs) c.jobs={};
+    if(c.jobs[nm]){ toast("Ya existe ese trabajo"); return; }
+    c.jobs[nm]=jobPlain(c.baseRate||32); c.updatedAt=now(); editJob=nm; save(); loadConfigForm(); toast("✓ Trabajo añadido: "+nm); };
+  document.getElementById("c_jobDefault").onclick=()=>{ const c=cfg(); const cur=curEditJob(); if(!cur) return;
+    c.defaultJob=cur; c.baseRate=c.jobs[cur].baseRate; c.updatedAt=now(); save(); loadConfigForm(); renderAll(); toast("★ "+cur+" es tu trabajo principal"); };
+  document.getElementById("c_jobDel").onclick=()=>{ const c=cfg(); const cur=curEditJob(); if(!cur) return;
+    if(Object.keys(c.jobs).length<2){ toast("⚠︎ Debe quedar al menos un trabajo"); return; }
+    const used=liveEntries().filter(e=>e.job===cur).length;
+    if(!confirm('¿Eliminar el trabajo "'+cur+'"?'+(used?("\n\n"+used+" turno(s) pasarán a tu trabajo principal."):""))) return;
+    delete c.jobs[cur]; if(c.defaultJob===cur){ c.defaultJob=Object.keys(c.jobs)[0]; c.baseRate=c.jobs[c.defaultJob].baseRate; }
+    editJob=null; c.updatedAt=now(); save(); loadConfigForm(); renderAll(); toast("Trabajo eliminado"); };
   document.getElementById("x_export").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}));a.download="registro-horas-backup.json";a.click();};
   document.getElementById("x_import").onclick=()=>document.getElementById("x_file").click();
   document.getElementById("x_file").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{S=migrate(JSON.parse(rd.result));persist();renderAll();showTab("inicio");toast("✓ Respaldo importado");}catch(err){toast("⚠︎ Archivo inválido");}};rd.readAsText(f);};
