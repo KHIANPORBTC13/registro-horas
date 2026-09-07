@@ -267,11 +267,18 @@ td.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .decomp-key i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:7px;vertical-align:middle}
 
 /* ---------- Importar turnos desde imagen ---------- */
-.imp-row{display:grid;grid-template-columns:auto 1fr 1fr 1fr 2fr auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.imp-row{padding:12px 0;border-bottom:1px solid var(--line-soft)}
 .imp-row:last-child{border:none}
 .imp-row input.inp{min-height:40px;font-size:13.5px;padding:0 8px}
-.imp-row .imp-del{color:var(--terra);cursor:pointer;font-size:18px;padding:0 6px;background:none;border:none}
-@media(max-width:620px){.imp-row{grid-template-columns:auto 1fr 1fr;grid-template-areas:"chk date date" "start end note" ". . ." "del del del";row-gap:6px}}
+.imp-row-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.imp-row-top .imp-date{flex:1.3}
+.imp-row-top .imp-start,.imp-row-top .imp-end{flex:1}
+.imp-row-bottom{display:flex;flex-wrap:wrap;gap:8px}
+.imp-row-bottom .imp-site{flex:2;min-width:100px}
+.imp-row-bottom .imp-qty{flex:0.6;min-width:56px}
+.imp-row-bottom .imp-brk{flex:0.7;min-width:64px}
+.imp-row-bottom .imp-note{flex:3;min-width:120px}
+.imp-del{color:var(--terra);cursor:pointer;font-size:18px;padding:0 6px;background:none;border:none;flex:none}
 
 /* ---------- Cuadrar / forense ---------- */
 .forensic{border-left:3px solid var(--line)}
@@ -1391,17 +1398,17 @@ function parseTimeToken(tok){ const m=String(tok).match(/(\d{1,2}):(\d{2})\s*([a
   if(!m) return null; let h=+m[1],mi=+m[2]; const ap=(m[3]||"").toLowerCase();
   if(ap==="p"&&h!==12)h+=12; if(ap==="a"&&h===12)h=0; if(h>23||mi>59) return null; return pad2(h)+":"+pad2(mi); }
 function findTimeTokens(line){ const re=/\d{1,2}:\d{2}\s*(?:[ap]\.?\s*m?\.?)?/gi; const out=[]; let m;
-  while((m=re.exec(line))){ const v=parseTimeToken(m[0]); if(v) out.push({raw:m[0],val:v}); } return out; }
+  while((m=re.exec(line))){ const v=parseTimeToken(m[0]); if(v) out.push({raw:m[0],val:v,idx:m.index}); } return out; }
 function findDateToken(line,defYear){
-  let m=line.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return {ymd:m[1]+"-"+pad2(m[2])+"-"+pad2(m[3]),raw:m[0]};
-  m=line.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if(m) return {ymd:m[3]+"-"+pad2(m[1])+"-"+pad2(m[2]),raw:m[0]};
+  let m=line.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return {ymd:m[1]+"-"+pad2(m[2])+"-"+pad2(m[3]),raw:m[0],idx:m.index};
+  m=line.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if(m) return {ymd:m[3]+"-"+pad2(m[1])+"-"+pad2(m[2]),raw:m[0],idx:m.index};
   const mo=Object.keys(MONTHS_ES_EN).sort((a,b)=>b.length-a.length).join("|");
   let re=new RegExp("(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*,?\\s*("+mo+")\\.?\\s*,?\\s*(\\d{4})?","i");
   m=line.match(re); if(m){ const day=+m[1],mon=MONTHS_ES_EN[m[2].toLowerCase()],yr=m[3]?+m[3]:defYear;
-    if(mon!=null&&day>=1&&day<=31) return {ymd:yr+"-"+pad2(mon+1)+"-"+pad2(day),raw:m[0]}; }
+    if(mon!=null&&day>=1&&day<=31) return {ymd:yr+"-"+pad2(mon+1)+"-"+pad2(day),raw:m[0],idx:m.index}; }
   re=new RegExp("("+mo+")\\.?\\s+(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*,?\\s*(\\d{4})?","i");
   m=line.match(re); if(m){ const mon=MONTHS_ES_EN[m[1].toLowerCase()],day=+m[2],yr=m[3]?+m[3]:defYear;
-    if(mon!=null&&day>=1&&day<=31) return {ymd:yr+"-"+pad2(mon+1)+"-"+pad2(day),raw:m[0]}; }
+    if(mon!=null&&day>=1&&day<=31) return {ymd:yr+"-"+pad2(mon+1)+"-"+pad2(day),raw:m[0],idx:m.index}; }
   return null;
 }
 function extractShiftRows(text,defYear){
@@ -1411,9 +1418,23 @@ function extractShiftRows(text,defYear){
     const d=findDateToken(line,defYear); if(d) lastDate=d.ymd;
     const times=findTimeTokens(line);
     if(times.length>=2&&lastDate&&times[0].val!==times[1].val){
-      let note=line; [d&&d.raw,times[0].raw,times[1].raw].filter(Boolean).forEach(tok=>{note=note.split(tok).join(" ");});
-      note=note.replace(/[|·•]/g," ").replace(/\s{2,}/g," ").trim();
-      rows.push({date:lastDate,start:times[0].val,end:times[1].val,note});
+      const midStart = d ? (d.idx+d.raw.length) : 0;
+      const midSeg=line.slice(midStart,times[0].idx).trim();
+      const tailSeg=line.slice(times[1].idx+times[1].raw.length).trim();
+      // Sede + Cantidad: el ultimo token del tramo entre la fecha y la primera hora, si es un numero pequeno, es "cantidad"
+      let site="",qty="";
+      if(midSeg){ const parts=midSeg.split(/\s+/).filter(Boolean);
+        const last=parts[parts.length-1];
+        if(/^\d{1,3}$/.test(last)&&parts.length>1){ qty=last; site=parts.slice(0,-1).join(" "); }
+        else site=midSeg; }
+      // Descanso: primer numero decimal chico (tipo 0.50) en el tramo posterior a las horas
+      let brk="";
+      const decNums=[...tailSeg.matchAll(/\b\d{1,2}\.\d{1,2}\b/g)];
+      if(decNums.length){ const bh=parseFloat(decNums[0][0]); if(bh>=0&&bh<=3) brk=String(Math.round(bh*60)); }
+      // Novedades: lo que sobra tras quitar los numeros decimales (break/horas) y el monto $
+      let note=tailSeg.replace(/\$\s?[\d,]+\.\d{2}/g,"").replace(/\b\d{1,2}\.\d{1,2}\b/g,"")
+        .replace(/[|·•]/g," ").replace(/\s{2,}/g," ").trim();
+      rows.push({date:lastDate,start:times[0].val,end:times[1].val,site,qty,brk,note});
     }
   });
   return rows;
@@ -1423,17 +1444,27 @@ function renderImportRows(){
   const box=document.getElementById("imp_rows"); if(!box) return;
   if(!importRows.length){ box.innerHTML='<p class="hint">Sin filas para mostrar. Agrega una manualmente abajo, o cierra e intenta con otra imagen.</p>'; return; }
   box.innerHTML=importRows.map((r,i)=>`<div class="imp-row" data-i="${i}">
-    <input type="checkbox" class="imp-inc" ${r.include?"checked":""} aria-label="Incluir turno">
-    <input type="date" class="inp imp-date" value="${esc(r.date||"")}">
-    <input type="time" class="inp imp-start" value="${esc(r.start||"")}">
-    <input type="time" class="inp imp-end" value="${esc(r.end||"")}">
-    <input type="text" class="inp imp-note" value="${esc(r.note||"")}" placeholder="nota (sede, autos, novedades…)">
-    <button class="imp-del" type="button" title="Quitar fila">✕</button></div>`).join("");
+    <div class="imp-row-top">
+      <input type="checkbox" class="imp-inc" ${r.include?"checked":""} aria-label="Incluir turno">
+      <input type="date" class="inp imp-date" value="${esc(r.date||"")}">
+      <input type="time" class="inp imp-start" value="${esc(r.start||"")}" aria-label="Entrada">
+      <input type="time" class="inp imp-end" value="${esc(r.end||"")}" aria-label="Salida">
+      <button class="imp-del" type="button" title="Quitar fila">✕</button>
+    </div>
+    <div class="imp-row-bottom">
+      <input type="text" class="inp imp-site" value="${esc(r.site||"")}" placeholder="Sede/lugar">
+      <input type="number" class="inp imp-qty" value="${esc(r.qty||"")}" placeholder="Cant.">
+      <input type="number" class="inp imp-brk" value="${esc(r.brk||"")}" placeholder="Descanso min">
+      <input type="text" class="inp imp-note" value="${esc(r.note||"")}" placeholder="Novedades">
+    </div></div>`).join("");
   box.querySelectorAll(".imp-row").forEach(row=>{ const i=Number(row.dataset.i);
     row.querySelector(".imp-inc").onchange=e=>{importRows[i].include=e.target.checked;};
     row.querySelector(".imp-date").onchange=e=>{importRows[i].date=e.target.value;};
     row.querySelector(".imp-start").onchange=e=>{importRows[i].start=e.target.value;};
     row.querySelector(".imp-end").onchange=e=>{importRows[i].end=e.target.value;};
+    row.querySelector(".imp-site").oninput=e=>{importRows[i].site=e.target.value;};
+    row.querySelector(".imp-qty").oninput=e=>{importRows[i].qty=e.target.value;};
+    row.querySelector(".imp-brk").oninput=e=>{importRows[i].brk=e.target.value;};
     row.querySelector(".imp-note").oninput=e=>{importRows[i].note=e.target.value;};
     row.querySelector(".imp-del").onclick=()=>{importRows.splice(i,1);renderImportRows();};
   });
@@ -1457,7 +1488,8 @@ function saveImportedRows(){
     if(!r.date||!r.start||!r.end){ invalid++; return; }
     const key=r.date+"|"+job+"|"+r.start+"|"+r.end;
     if(have.has(key)){ skipped++; return; }
-    P().entries.push({id:Date.now().toString(36)+Math.floor(performance.now()*1000).toString(36)+i,date:r.date,start:r.start,end:r.end,brk:"",job,holiday:false,note:r.note||"",updatedAt:now()});
+    const qtyNum=(r.qty!==""&&r.qty!=null&&!isNaN(Number(r.qty)))?Number(r.qty):null;
+    P().entries.push({id:Date.now().toString(36)+Math.floor(performance.now()*1000).toString(36)+i,date:r.date,start:r.start,end:r.end,brk:r.brk||"",job,holiday:false,site:r.site||"",qty:qtyNum,note:r.note||"",updatedAt:now()});
     have.add(key); saved++;
   });
   if(saved){ save(); renderAll(); }
@@ -1788,7 +1820,7 @@ window.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("pay_ocr").onclick=ocrAmount;
   document.getElementById("r_import").onclick=()=>document.getElementById("r_importFile").click();
   document.getElementById("r_importFile").onchange=e=>{ const fl=e.target.files[0]; if(fl) importFromImage(fl); e.target.value=""; };
-  document.getElementById("imp_addRow").onclick=()=>{ importRows.push({include:true,date:"",start:"",end:"",note:""}); renderImportRows(); };
+  document.getElementById("imp_addRow").onclick=()=>{ importRows.push({include:true,date:"",start:"",end:"",site:"",qty:"",brk:"",note:""}); renderImportRows(); };
   document.getElementById("imp_year").onchange=reparseWithYear;
   document.getElementById("imp_save").onclick=saveImportedRows;
   document.getElementById("imp_cancel").onclick=closeImportSheet;
