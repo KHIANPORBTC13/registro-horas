@@ -266,6 +266,13 @@ td.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .decomp-key{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:var(--muted)}
 .decomp-key i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:7px;vertical-align:middle}
 
+/* ---------- Importar turnos desde imagen ---------- */
+.imp-row{display:grid;grid-template-columns:auto 1fr 1fr 1fr 2fr auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.imp-row:last-child{border:none}
+.imp-row input.inp{min-height:40px;font-size:13.5px;padding:0 8px}
+.imp-row .imp-del{color:var(--terra);cursor:pointer;font-size:18px;padding:0 6px;background:none;border:none}
+@media(max-width:620px){.imp-row{grid-template-columns:auto 1fr 1fr;grid-template-areas:"chk date date" "start end note" ". . ." "del del del";row-gap:6px}}
+
 /* ---------- Cuadrar / forense ---------- */
 .forensic{border-left:3px solid var(--line)}
 .forensic.bad{border-left-color:var(--terra)}.forensic.ok{border-left-color:var(--jade)}
@@ -393,7 +400,10 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
     <div id="manualForm"></div>
     <div class="preview" id="r_preview"></div>
     <div class="btn-row"><button class="btn primary" id="r_save" type="button">Guardar turno</button>
-      <button class="btn ghost" id="r_today" type="button">Hoy</button></div>
+      <button class="btn ghost" id="r_today" type="button">Hoy</button>
+      <button class="btn ghost" id="r_import" type="button">📷 Importar desde imagen</button>
+      <input type="file" id="r_importFile" accept="image/*" hidden></div>
+    <p class="hint" id="r_importStatus" style="margin-top:8px;min-height:16px"></p>
   </div>
 </section>
 
@@ -601,6 +611,21 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
   </div>
 </div>
 
+<div class="scrim" id="importScrim" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="importTitle" style="max-width:640px">
+    <div class="grab"></div>
+    <h3 id="importTitle">Revisa los turnos detectados</h3>
+    <p class="hint" style="margin:-6px 0 14px">Verifica cada fila antes de guardar — corrige lo que el lector haya entendido mal. Nada se guarda hasta que confirmes.</p>
+    <div class="fg" style="margin-bottom:14px">
+      <label class="f">Trabajo<select class="inp" id="imp_job"></select></label>
+      <label class="f">Año (si la imagen no lo trae)<input type="number" class="inp" id="imp_year" step="1"></label>
+    </div>
+    <div id="imp_rows"></div>
+    <div class="btn-row"><button class="btn ghost" id="imp_addRow" type="button">＋ Agregar fila</button></div>
+    <div class="btn-row" style="margin-top:18px"><button class="btn primary" id="imp_save" type="button">Guardar turnos seleccionados</button>
+      <button class="btn ghost" id="imp_cancel" type="button">Cancelar</button></div>
+  </div>
+</div>
 <div class="scrim" id="cuadrarScrim" aria-hidden="true">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="cuadrarTitle">
     <div class="grab"></div>
@@ -1328,10 +1353,105 @@ function renderPaymentsTable(){
 }
 function payForm(){ const g=id=>document.getElementById("pay_"+id);
   return {date:g("date").value,amount:g("amount").value,source:g("source").value,tax:g("tax").value,superA:g("super").value,note:g("note").value}; }
-function compressImg(file,cb){const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const mx=1200;let w=im.width,h=im.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}const cv=document.createElement("canvas");cv.width=w;cv.height=h;cv.getContext("2d").drawImage(im,0,0,w,h);cb(cv.toDataURL("image/jpeg",0.72));};im.onerror=()=>cb(fr.result);im.src=fr.result;};fr.readAsDataURL(file);}
+function compressImg(file,cb,maxDim){const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const mx=maxDim||1200;let w=im.width,h=im.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}const cv=document.createElement("canvas");cv.width=w;cv.height=h;cv.getContext("2d").drawImage(im,0,0,w,h);cb(cv.toDataURL("image/jpeg",0.72));};im.onerror=()=>cb(fr.result);im.src=fr.result;};fr.readAsDataURL(file);}
 function openData(d){try{fetch(d).then(r=>r.blob()).then(b=>window.open(URL.createObjectURL(b),"_blank"));}catch(e){const a=document.createElement("a");a.href=d;a.target="_blank";a.click();}}
 function showPayFile(){const el=document.getElementById("pay_fileInfo");if(!el)return;if(payFile){const kb=Math.round((payFile.data.length*0.75)/1024);el.innerHTML='📎 <b>'+esc(payFile.name)+'</b> ('+kb+' KB) · <a href="#" id="pay_fileView" style="color:var(--gold)">ver</a> · <a href="#" id="pay_fileRm" style="color:var(--terra)">quitar</a>';document.getElementById("pay_fileView").onclick=ev=>{ev.preventDefault();openData(payFile.data);};document.getElementById("pay_fileRm").onclick=ev=>{ev.preventDefault();payFile=null;document.getElementById("pay_file").value="";document.getElementById("pay_ocr").hidden=true;showPayFile();};}else el.innerHTML="";}
 function onPayFile(e){const f=e.target.files[0];if(!f)return;const isImg=f.type.startsWith("image/");if(isImg){compressImg(f,d=>{payFile={data:d,name:f.name,type:"image/jpeg"};showPayFile();document.getElementById("pay_ocr").hidden=false;});}else{if(f.size>5*1024*1024){toast("⚠︎ Archivo muy grande (>5MB)");return;}const fr=new FileReader();fr.onload=()=>{payFile={data:fr.result,name:f.name,type:f.type};showPayFile();document.getElementById("pay_ocr").hidden=true;};fr.readAsDataURL(f);}}
+/* ===================== Importar turnos desde imagen (generico) ===================== */
+const MONTHS_ES_EN={jan:0,ene:0,january:0,enero:0,feb:1,february:1,febrero:1,mar:2,march:2,marzo:2,apr:3,abr:3,april:3,abril:3,may:4,mayo:4,jun:5,june:5,junio:5,jul:6,july:6,julio:6,aug:7,ago:7,august:7,agosto:7,sep:8,sept:8,september:8,septiembre:8,setiembre:8,oct:9,october:9,octubre:9,nov:10,november:10,noviembre:10,dec:11,dic:11,december:11,diciembre:11};
+function pad2(n){ return String(n).padStart(2,"0"); }
+function parseTimeToken(tok){ const m=String(tok).match(/(\d{1,2}):(\d{2})\s*([ap])\.?\s*m?\.?/i);
+  if(!m) return null; let h=+m[1],mi=+m[2]; const ap=(m[3]||"").toLowerCase();
+  if(ap==="p"&&h!==12)h+=12; if(ap==="a"&&h===12)h=0; if(h>23||mi>59) return null; return pad2(h)+":"+pad2(mi); }
+function findTimeTokens(line){ const re=/\d{1,2}:\d{2}\s*(?:[ap]\.?\s*m?\.?)?/gi; const out=[]; let m;
+  while((m=re.exec(line))){ const v=parseTimeToken(m[0]); if(v) out.push({raw:m[0],val:v}); } return out; }
+function findDateToken(line,defYear){
+  let m=line.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return {ymd:m[1]+"-"+pad2(m[2])+"-"+pad2(m[3]),raw:m[0]};
+  m=line.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if(m) return {ymd:m[3]+"-"+pad2(m[1])+"-"+pad2(m[2]),raw:m[0]};
+  const mo=Object.keys(MONTHS_ES_EN).sort((a,b)=>b.length-a.length).join("|");
+  let re=new RegExp("(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*,?\\s*("+mo+")\\.?\\s*,?\\s*(\\d{4})?","i");
+  m=line.match(re); if(m){ const day=+m[1],mon=MONTHS_ES_EN[m[2].toLowerCase()],yr=m[3]?+m[3]:defYear;
+    if(mon!=null&&day>=1&&day<=31) return {ymd:yr+"-"+pad2(mon+1)+"-"+pad2(day),raw:m[0]}; }
+  re=new RegExp("("+mo+")\\.?\\s+(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*,?\\s*(\\d{4})?","i");
+  m=line.match(re); if(m){ const mon=MONTHS_ES_EN[m[1].toLowerCase()],day=+m[2],yr=m[3]?+m[3]:defYear;
+    if(mon!=null&&day>=1&&day<=31) return {ymd:yr+"-"+pad2(mon+1)+"-"+pad2(day),raw:m[0]}; }
+  return null;
+}
+function extractShiftRows(text,defYear){
+  const lines=String(text).split(/\n/).map(l=>l.trim()).filter(Boolean);
+  const rows=[]; let lastDate=null;
+  lines.forEach(line=>{
+    const d=findDateToken(line,defYear); if(d) lastDate=d.ymd;
+    const times=findTimeTokens(line);
+    if(times.length>=2&&lastDate&&times[0].val!==times[1].val){
+      let note=line; [d&&d.raw,times[0].raw,times[1].raw].filter(Boolean).forEach(tok=>{note=note.split(tok).join(" ");});
+      note=note.replace(/[|·•]/g," ").replace(/\s{2,}/g," ").trim();
+      rows.push({date:lastDate,start:times[0].val,end:times[1].val,note});
+    }
+  });
+  return rows;
+}
+let importRows=[];
+function renderImportRows(){
+  const box=document.getElementById("imp_rows"); if(!box) return;
+  if(!importRows.length){ box.innerHTML='<p class="hint">Sin filas para mostrar. Agrega una manualmente abajo, o cierra e intenta con otra imagen.</p>'; return; }
+  box.innerHTML=importRows.map((r,i)=>`<div class="imp-row" data-i="${i}">
+    <input type="checkbox" class="imp-inc" ${r.include?"checked":""} aria-label="Incluir turno">
+    <input type="date" class="inp imp-date" value="${esc(r.date||"")}">
+    <input type="time" class="inp imp-start" value="${esc(r.start||"")}">
+    <input type="time" class="inp imp-end" value="${esc(r.end||"")}">
+    <input type="text" class="inp imp-note" value="${esc(r.note||"")}" placeholder="nota (sede, autos, novedades…)">
+    <button class="imp-del" type="button" title="Quitar fila">✕</button></div>`).join("");
+  box.querySelectorAll(".imp-row").forEach(row=>{ const i=Number(row.dataset.i);
+    row.querySelector(".imp-inc").onchange=e=>{importRows[i].include=e.target.checked;};
+    row.querySelector(".imp-date").onchange=e=>{importRows[i].date=e.target.value;};
+    row.querySelector(".imp-start").onchange=e=>{importRows[i].start=e.target.value;};
+    row.querySelector(".imp-end").onchange=e=>{importRows[i].end=e.target.value;};
+    row.querySelector(".imp-note").oninput=e=>{importRows[i].note=e.target.value;};
+    row.querySelector(".imp-del").onclick=()=>{importRows.splice(i,1);renderImportRows();};
+  });
+}
+function openImportSheet(rows){
+  importRows=rows.map(r=>Object.assign({include:true},r));
+  const jobSel=document.getElementById("imp_job");
+  jobSel.innerHTML=jobNames().map(n=>`<option ${n===cfg().defaultJob?"selected":""}>${esc(n)}</option>`).join("");
+  document.getElementById("imp_year").value=new Date().getFullYear();
+  renderImportRows();
+  const sc=document.getElementById("importScrim"); sc.classList.add("open"); sc.setAttribute("aria-hidden","false");
+}
+function closeImportSheet(){ const sc=document.getElementById("importScrim"); sc.classList.remove("open"); sc.setAttribute("aria-hidden","true"); }
+function reparseWithYear(){ const y=Number(document.getElementById("imp_year").value)||new Date().getFullYear();
+  importRows.forEach(r=>{ if(r.date&&r.date.slice(0,4)==="1970"){ r.date=y+r.date.slice(4); } }); renderImportRows(); }
+function saveImportedRows(){
+  const job=document.getElementById("imp_job").value||cfg().defaultJob;
+  const have=new Set(liveEntries().map(e=>e.date+"|"+jobOf(e)+"|"+e.start+"|"+e.end));
+  let saved=0,skipped=0,invalid=0;
+  importRows.forEach((r,i)=>{ if(!r.include) return;
+    if(!r.date||!r.start||!r.end){ invalid++; return; }
+    const key=r.date+"|"+job+"|"+r.start+"|"+r.end;
+    if(have.has(key)){ skipped++; return; }
+    P().entries.push({id:Date.now().toString(36)+Math.floor(performance.now()*1000).toString(36)+i,date:r.date,start:r.start,end:r.end,brk:"",job,holiday:false,note:r.note||"",updatedAt:now()});
+    have.add(key); saved++;
+  });
+  if(saved){ save(); renderAll(); }
+  closeImportSheet();
+  toast((saved?("✓ "+saved+" turno(s) guardado(s)"):"Nada que guardar")+(skipped?(" · "+skipped+" duplicado(s) omitido(s)"):"")+(invalid?(" · "+invalid+" incompleta(s)"):""));
+}
+function importFromImage(file){
+  const statusEl=document.getElementById("r_importStatus"); statusEl.textContent="🔎 Leyendo imagen… (unos segundos)";
+  compressImg(file,dataUrl=>{
+    const run=()=>Tesseract.recognize(dataUrl,"eng").then(({data})=>{
+      const rows=extractShiftRows(data.text,new Date().getFullYear());
+      statusEl.textContent=rows.length?("Se detectaron "+rows.length+" turno(s) — revísalos abajo."):"";
+      if(!rows.length){ toast("No se detectó ningún turno automáticamente. Puedes agregarlos manualmente en la revisión."); openImportSheet([]); return; }
+      openImportSheet(rows);
+    }).catch(()=>{ statusEl.textContent=""; toast("⚠︎ No se pudo leer la imagen. Intenta con otra o registra manual."); });
+    if(window.Tesseract) run();
+    else { const sc=document.createElement("script"); sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+      sc.onload=run; sc.onerror=()=>{ statusEl.textContent=""; toast("No se pudo cargar el lector (¿sin internet?)"); };
+      document.head.appendChild(sc); }
+  },1800);
+}
 function ocrAmount(){if(!payFile||!payFile.type.startsWith("image/")){toast("OCR solo para imágenes");return;}const el=document.getElementById("pay_fileInfo");el.textContent="🔎 Leyendo comprobante… (unos segundos)";const run=()=>Tesseract.recognize(payFile.data,"eng").then(({data})=>{const t=data.text;let amt=null;for(const ln of t.split(/\n/)){if(/net|paid|total|deposit|pago|neto/i.test(ln)){const m=ln.match(/(\d{1,3}(?:[,\s]\d{3})*\.\d{2})/);if(m){amt=parseFloat(m[1].replace(/[,\s]/g,""));break;}}}if(amt==null){const all=[...t.matchAll(/(\d{1,3}(?:[,\s]\d{3})*\.\d{2})/g)].map(m=>parseFloat(m[1].replace(/[,\s]/g,"")));if(all.length)amt=Math.max(...all);}if(amt!=null){document.getElementById("pay_amount").value=amt.toFixed(2);showPayFile();toast("Monto sugerido: "+amt.toFixed(2)+" · verifica");}else{showPayFile();toast("No se detectó monto; ingrésalo manual");}}).catch(()=>{showPayFile();toast("OCR falló; ingresa manual");});if(window.Tesseract)run();else{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";s.onload=run;s.onerror=()=>{showPayFile();toast("No se pudo cargar OCR (sin internet?)");};document.head.appendChild(s);}}
 function clearPayForm(){ ["amount","tax","super","note"].forEach(k=>document.getElementById("pay_"+k).value=""); document.getElementById("pay_date").value=todayStr(); document.getElementById("pay_file").value=""; payFile=null; showPayFile(); document.getElementById("pay_ocr").hidden=true;
   editingPay=null; document.getElementById("pay_save").textContent="Agregar pago"; document.getElementById("pay_del").hidden=true; document.getElementById("pay_cancel").hidden=true; }
@@ -1522,6 +1642,14 @@ window.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("pay_cancel").onclick=clearPayForm;
   document.getElementById("pay_file").onchange=onPayFile;
   document.getElementById("pay_ocr").onclick=ocrAmount;
+  document.getElementById("r_import").onclick=()=>document.getElementById("r_importFile").click();
+  document.getElementById("r_importFile").onchange=e=>{ const fl=e.target.files[0]; if(fl) importFromImage(fl); e.target.value=""; };
+  document.getElementById("imp_addRow").onclick=()=>{ importRows.push({include:true,date:"",start:"",end:"",note:""}); renderImportRows(); };
+  document.getElementById("imp_year").onchange=reparseWithYear;
+  document.getElementById("imp_save").onclick=saveImportedRows;
+  document.getElementById("imp_cancel").onclick=closeImportSheet;
+  document.getElementById("importScrim").addEventListener("click",e=>{if(e.target.id==="importScrim")closeImportSheet();});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeImportSheet();});
   document.getElementById("in_period").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b||!b.dataset.per)return; inPeriod=b.dataset.per; document.querySelectorAll("#in_period button").forEach(x=>x.classList.toggle("on",x.dataset.per===inPeriod)); renderIngresos();});
   document.getElementById("in_job").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b||!b.dataset.j)return; inJob=b.dataset.j; renderIngresos();});
 
