@@ -1399,11 +1399,22 @@ function onPayFile(e){const f=e.target.files[0];if(!f)return;const isImg=f.type.
 /* ===================== Importar turnos desde imagen (generico) ===================== */
 const MONTHS_ES_EN={jan:0,ene:0,january:0,enero:0,feb:1,february:1,febrero:1,mar:2,march:2,marzo:2,apr:3,abr:3,april:3,abril:3,may:4,mayo:4,jun:5,june:5,junio:5,jul:6,july:6,julio:6,aug:7,ago:7,august:7,agosto:7,sep:8,sept:8,september:8,septiembre:8,setiembre:8,oct:9,october:9,octubre:9,nov:10,november:10,noviembre:10,dec:11,dic:11,december:11,diciembre:11};
 function pad2(n){ return String(n).padStart(2,"0"); }
-function parseTimeToken(tok){ const m=String(tok).match(/(\d{1,2}):(\d{2})\s*([ap])\.?\s*m?\.?/i);
-  if(!m) return null; let h=+m[1],mi=+m[2]; const ap=(m[3]||"").toLowerCase();
-  if(ap==="p"&&h!==12)h+=12; if(ap==="a"&&h===12)h=0; if(h>23||mi>59) return null; return pad2(h)+":"+pad2(mi); }
-function findTimeTokens(line){ const re=/\d{1,2}:\d{2}\s*(?:[ap]\.?\s*m?\.?)?/gi; const out=[]; let m;
-  while((m=re.exec(line))){ const v=parseTimeToken(m[0]); if(v) out.push({raw:m[0],val:v,idx:m.index}); } return out; }
+function findTimeTokens(line){
+  const out=[];
+  // Patron A: 12h con am/pm; separador entre hora y minutos flexible (: . , ; o nada) para tolerar errores de OCR
+  let re=/\b(\d{1,2})\s*[:.,;]?\s*([0-5]\d)\s*([ap])\.?\s*m?\.?\b/gi; let m;
+  while((m=re.exec(line))){ const h=+m[1],mi=+m[2]; if(h>=1&&h<=12){
+    const ap=m[3].toLowerCase(); let hh=h; if(ap==="p"&&hh!==12)hh+=12; if(ap==="a"&&hh===12)hh=0;
+    out.push({raw:m[0],val:pad2(hh)+":"+pad2(mi),idx:m.index}); } }
+  // Patron B: 24h estricto, exige ":" para no confundir numeros sueltos con horas
+  re=/\b([01]?\d|2[0-3]):([0-5]\d)\b/g;
+  while((m=re.exec(line))){
+    if(out.some(o=>Math.abs(o.idx-m.index)<2)) continue;
+    out.push({raw:m[0],val:pad2(+m[1])+":"+pad2(+m[2]),idx:m.index});
+  }
+  out.sort((a,b)=>a.idx-b.idx);
+  return out;
+}
 function findDateToken(line,defYear){
   let m=line.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return {ymd:m[1]+"-"+pad2(m[2])+"-"+pad2(m[3]),raw:m[0],idx:m.index};
   m=line.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if(m) return {ymd:m[3]+"-"+pad2(m[1])+"-"+pad2(m[2]),raw:m[0],idx:m.index};
@@ -1414,18 +1425,32 @@ function findDateToken(line,defYear){
   re=new RegExp("("+mo+")\\.?\\s+(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*,?\\s*(\\d{4})?","i");
   m=line.match(re); if(m){ const mon=MONTHS_ES_EN[m[1].toLowerCase()],day=+m[2],yr=m[3]?+m[3]:defYear;
     if(mon!=null&&day>=1&&day<=31) return {ymd:yr+"-"+pad2(mon+1)+"-"+pad2(day),raw:m[0],idx:m.index}; }
+  // Fallback: dd/mm o dd-mm sin año (fotos de reloj checador / apps moviles)
+  m=line.match(/\b(\d{1,2})[\/\-](\d{1,2})\b(?!\d)/);
+  if(m){ const day=+m[1],mon=+m[2]; if(day>=1&&day<=31&&mon>=1&&mon<=12) return {ymd:defYear+"-"+pad2(mon)+"-"+pad2(day),raw:m[0],idx:m.index}; }
   return null;
 }
 function extractShiftRows(text,defYear){
   const lines=String(text).split(/\n/).map(l=>l.trim()).filter(Boolean);
   const rows=[]; let lastDate=null;
-  lines.forEach(line=>{
+  for(let li=0; li<lines.length; li++){
+    const line=lines[li];
     const d=findDateToken(line,defYear); if(d) lastDate=d.ymd;
-    const times=findTimeTokens(line);
-    if(times.length>=2&&lastDate&&times[0].val!==times[1].val){
+    let times=findTimeTokens(line);
+    let tailFromNext=false;
+    // Si la linea trae solo 1 hora y la siguiente linea trae exactamente otra (sin fecha propia),
+    // el OCR probablemente partio la fila en dos lineas -> las unimos.
+    if(times.length===1 && li+1<lines.length){
+      const nextLine=lines[li+1];
+      if(!findDateToken(nextLine,defYear)){
+        const nextTimes=findTimeTokens(nextLine);
+        if(nextTimes.length===1){ times=[times[0],nextTimes[0]]; tailFromNext=true; }
+      }
+    }
+    if(times.length>=2 && times[0].val!==times[1].val){
       const midStart = d ? (d.idx+d.raw.length) : 0;
-      const midSeg=line.slice(midStart,times[0].idx).trim();
-      const tailSeg=line.slice(times[1].idx+times[1].raw.length).trim();
+      const midSeg = d ? line.slice(midStart,times[0].idx).trim() : "";
+      const tailSeg = tailFromNext ? "" : line.slice(times[1].idx+times[1].raw.length).trim();
       // Sede + Cantidad: el ultimo token del tramo entre la fecha y la primera hora, si es un numero pequeno, es "cantidad"
       let site="",qty="";
       if(midSeg){ const parts=midSeg.split(/\s+/).filter(Boolean);
@@ -1439,9 +1464,12 @@ function extractShiftRows(text,defYear){
       // Novedades: lo que sobra tras quitar los numeros decimales (break/horas) y el monto $
       let note=tailSeg.replace(/\$\s?[\d,]+\.\d{2}/g,"").replace(/\b\d{1,2}\.\d{1,2}\b/g,"")
         .replace(/[|·•]/g," ").replace(/\s{2,}/g," ").trim();
-      rows.push({date:lastDate,start:times[0].val,end:times[1].val,site,qty,brk,note});
+      // Sin fecha reconocida: igual mostramos el turno (fecha en blanco) para no perder las horas leidas -
+      // el usuario la completa en la revision, en vez de descartar todo silenciosamente.
+      rows.push({date:lastDate||"",start:times[0].val,end:times[1].val,site,qty,brk,note});
+      if(tailFromNext) li++;
     }
-  });
+  }
   return rows;
 }
 let importRows=[];
@@ -1505,16 +1533,23 @@ function importFromImage(file){
   const statusEl=document.getElementById("r_importStatus"); statusEl.textContent="🔎 Leyendo imagen… (unos segundos)";
   compressImg(file,dataUrl=>{
     const run=()=>Tesseract.recognize(dataUrl,"eng").then(({data})=>{
-      const rows=extractShiftRows(data.text,new Date().getFullYear());
-      statusEl.textContent=rows.length?("Se detectaron "+rows.length+" turno(s) — revísalos abajo."):"";
-      if(!rows.length){ toast("No se detectó ningún turno automáticamente. Puedes agregarlos manualmente en la revisión."); openImportSheet([]); return; }
+      const rawText=data.text||"";
+      const rows=extractShiftRows(rawText,new Date().getFullYear());
+      const sinFecha=rows.filter(r=>!r.date).length;
+      if(!rows.length){
+        const huboTexto=rawText.replace(/\s/g,"").length>0;
+        statusEl.textContent="";
+        toast(huboTexto?"⚠︎ Se leyó la imagen pero no se reconocieron horas de entrada/salida. Agrega el turno manualmente abajo.":"⚠︎ No se pudo leer texto en la imagen. Prueba con una foto más nítida o registra manual.");
+        openImportSheet([]); return;
+      }
+      statusEl.textContent="Se detectaron "+rows.length+" turno(s)"+(sinFecha?(" ("+sinFecha+" sin fecha, complétala abajo)"):"")+" — revísalos.";
       openImportSheet(rows);
     }).catch(()=>{ statusEl.textContent=""; toast("⚠︎ No se pudo leer la imagen. Intenta con otra o registra manual."); });
     if(window.Tesseract) run();
     else { const sc=document.createElement("script"); sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
       sc.onload=run; sc.onerror=()=>{ statusEl.textContent=""; toast("No se pudo cargar el lector (¿sin internet?)"); };
       document.head.appendChild(sc); }
-  },1800);
+  },2200);
 }
 /* ===================== Factura semanal (imagen PNG) ===================== */
 const INV_MONTHS_EN=["January","February","March","April","May","June","July","August","September","October","November","December"];
