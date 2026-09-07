@@ -623,10 +623,15 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
 <div class="scrim" id="invoiceScrim" aria-hidden="true">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="invoiceTitle" style="max-width:520px">
     <div class="grab"></div>
-    <h3 id="invoiceTitle">Factura semanal</h3>
-    <p class="hint" style="margin:-6px 0 14px">Se genera con tus turnos de <b id="inv_jobName"></b> de lunes a domingo.</p>
+    <h3 id="invoiceTitle">Factura</h3>
+    <p class="hint" style="margin:-6px 0 12px">Se genera con tus turnos de <b id="inv_jobName"></b>.</p>
+    <div style="font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px">Período</div>
+    <div class="seg" id="inv_periodType" style="margin-bottom:16px">
+      <button data-t="week" class="on" type="button">Semanal (7 días)</button>
+      <button data-t="fortnight" type="button">Quincenal (14 días)</button>
+    </div>
     <div class="fg">
-      <label class="f">Cualquier día de la semana<input type="date" class="inp" id="inv_anyDay"></label>
+      <label class="f" id="inv_anyDayLabel">Cualquier día de la semana<input type="date" class="inp" id="inv_anyDay"></label>
       <label class="f">Nº de factura<input type="number" class="inp" id="inv_no" step="1"></label>
       <label class="f" style="grid-column:1/-1">Nombre para la factura<input type="text" class="inp" id="inv_name"></label>
     </div>
@@ -1513,14 +1518,15 @@ function importFromImage(file){
 }
 /* ===================== Factura semanal (imagen PNG) ===================== */
 const INV_MONTHS_EN=["January","February","March","April","May","June","July","August","September","October","November","December"];
-const INV_DAY_LABELS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Domingo"];
+const INV_DOW_NAMES=["Domingo","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 function mondayOf(dateStr){ const ms=parseD(dateStr); const dow=new Date(ms).getUTCDay(); const diff=(dow===0?-6:1-dow); return ymdU(ms+diff*864e5); }
-function weekDaysFrom(mondayStr){ const m=parseD(mondayStr); const out=[]; for(let i=0;i<7;i++) out.push(ymdU(m+i*864e5)); return out; }
-function invDateLabel(dateStr,i){ const d=parseD(dateStr); const dt=new Date(d); return INV_DAY_LABELS[i]+" "+dt.getUTCDate()+", "+INV_MONTHS_EN[dt.getUTCMonth()]; }
+function weekDaysFrom(startStr,numDays){ const m=parseD(startStr); const n=numDays||7; const out=[]; for(let i=0;i<n;i++) out.push(ymdU(m+i*864e5)); return out; }
+function invDateLabel(dateStr){ const d=parseD(dateStr); const dt=new Date(d); return INV_DOW_NAMES[dt.getUTCDay()]+" "+dt.getUTCDate()+", "+INV_MONTHS_EN[dt.getUTCMonth()]; }
+function periodRangeFor(type,anyDay,c){ if(type==="fortnight"){ const fi=fIdx(anyDay,c); const fr=fRange(fi,c); return {start:fr.start,numDays:14}; } return {start:mondayOf(anyDay),numDays:7}; }
 function money2(v){ return "$ "+Number(v||0).toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtDMY(dateStr){ const dt=new Date(parseD(dateStr)); return String(dt.getUTCDate()).padStart(2,"0")+"/"+String(dt.getUTCMonth()+1).padStart(2,"0")+"/"+dt.getUTCFullYear(); }
-function buildInvoiceData(job,mondayStr){
-  const c=cfg(); const days=weekDaysFrom(mondayStr);
+function buildInvoiceData(job,startStr,numDays){
+  const c=cfg(); const days=weekDaysFrom(startStr,numDays);
   const rows=days.map((d,i)=>{
     const ents=liveEntries().filter(e=>e.date===d&&jobOf(e)===job).sort((a,b)=>a.start<b.start?-1:1);
     if(!ents.length) return {i,date:d,site:"",qty:null,start:"",end:"",brkH:0,grossH:0,hours:0,total:0,note:""};
@@ -1541,19 +1547,19 @@ function drawInvoicePNG(opts){
   const S=2, W=cols.reduce((s,cc)=>s+cc[1],0);
   const headerH=46,subH=30,infoRowH=28,sectionH=30,theadH=32,rowH=32,totalRowH=36;
   const infoTop=headerH+subH, infoH=infoRowH*4;
-  const H=infoTop+infoH+sectionH+theadH+rowH*7+totalRowH;
+  const H=infoTop+infoH+sectionH+theadH+rowH*rows.length+totalRowH;
   const cv=document.createElement("canvas"); cv.width=Math.ceil(W*S); cv.height=Math.ceil(H*S);
   const ctx=cv.getContext("2d"); ctx.scale(S,S);
   const DARK="#0E5C2F", MED="#2F9155", LIGHT="#EAF7EC", WHITE="#FFFFFF", INK="#173A24", TEAL="#136B8C", GOLDG="#0E8F63", LINE="#D8E6DC";
   ctx.fillStyle=WHITE; ctx.fillRect(0,0,W,H);
   ctx.fillStyle=DARK; ctx.fillRect(0,0,W,headerH);
   ctx.fillStyle=WHITE; ctx.font="bold 20px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
-  ctx.fillText("GREEN & CLEAN - INVOICE SEMANAL", W/2, headerH/2);
+  ctx.fillText("GREEN & CLEAN - INVOICE "+(rows.length>7?"QUINCENAL":"SEMANAL"), W/2, headerH/2);
   ctx.fillStyle=LIGHT; ctx.fillRect(0,headerH,W,subH);
   ctx.fillStyle=DARK; ctx.font="italic 12px Arial";
   ctx.fillText("Enviar cada viernes. El pago se realiza el lunes después de aprobación.", W/2, headerH+subH/2);
   const infoLabels=["Nombre","Valor hora","Invoice No.","Perído"];
-  const infoValues=[name||"", money2(rate), String(invoiceNo), fmtDMY(mondayStr)+" - "+fmtDMY(ymdU(parseD(mondayStr)+6*864e5))];
+  const infoValues=[name||"", money2(rate), String(invoiceNo), fmtDMY(mondayStr)+" - "+fmtDMY(ymdU(parseD(mondayStr)+(rows.length-1)*864e5))];
   const labelW=140;
   for(let r=0;r<4;r++){
     const y=infoTop+r*infoRowH;
@@ -1577,27 +1583,34 @@ function drawInvoicePNG(opts){
     ctx.strokeStyle=LINE; ctx.beginPath(); ctx.moveTo(0,rowY+rowH); ctx.lineTo(W,rowY+rowH); ctx.stroke();
     let cx=0; ctx.fillStyle=INK; ctx.font="11px Arial";
     const cells=hasQty
-      ? [invDateLabel(r.date,idx), r.site, r.qty!=null?String(r.qty):"", r.start||"", r.end||"", r.hours>0?r.brkH.toFixed(2):"", r.hours>0?r.grossH.toFixed(2):"", r.hours>0?money2(r.total):"$ -", r.note]
-      : [invDateLabel(r.date,idx), r.site, r.start||"", r.end||"", r.hours>0?r.brkH.toFixed(2):"", r.hours>0?r.grossH.toFixed(2):"", r.hours>0?money2(r.total):"$ -", r.note];
+      ? [invDateLabel(r.date), r.site, r.qty!=null?String(r.qty):"", r.start||"", r.end||"", r.hours>0?r.brkH.toFixed(2):"", r.hours>0?r.grossH.toFixed(2):"", r.hours>0?money2(r.total):"$ -", r.note]
+      : [invDateLabel(r.date), r.site, r.start||"", r.end||"", r.hours>0?r.brkH.toFixed(2):"", r.hours>0?r.grossH.toFixed(2):"", r.hours>0?money2(r.total):"$ -", r.note];
     cols.forEach(([label,w],ci)=>{
       ctx.textAlign=(ci===0||ci===cols.length-1)?"left":"center";
       const txt=String(cells[ci]||""); const tx=ctx.textAlign==="left"?cx+8:cx+w/2;
       ctx.fillText(txt,tx,rowY+rowH/2,w-12); cx+=w;
     });
   });
-  y+=rowH*7;
+  y+=rowH*rows.length;
   ctx.fillStyle=DARK; ctx.fillRect(0,y,W,totalRowH);
-  ctx.fillStyle=WHITE; ctx.font="bold 13px Arial"; ctx.textAlign="left"; ctx.fillText("TOTAL SEMANAL",12,y+totalRowH/2);
+  ctx.fillStyle=WHITE; ctx.font="bold 13px Arial"; ctx.textAlign="left"; ctx.fillText("TOTAL "+(rows.length>7?"QUINCENAL":"SEMANAL"),12,y+totalRowH/2);
   let hx=0,tx2=0,acc=0; cols.forEach(([label,w])=>{ if(label==="Horas") hx=acc+w/2; if(label==="Total") tx2=acc+w/2; acc+=w; });
   ctx.textAlign="center";
   ctx.fillStyle=TEAL; ctx.font="bold 13px Arial"; ctx.fillText(totGrossH.toFixed(2),hx,y+totalRowH/2);
   ctx.fillStyle=GOLDG; ctx.font="bold 13px Arial"; ctx.fillText(money2(totT),tx2,y+totalRowH/2);
   return cv;
 }
+let invPeriodType="week";
+function setInvAnyDayLabel(){ const lab=document.getElementById("inv_anyDayLabel"); if(!lab) return;
+  const txt=invPeriodType==="fortnight"?"Cualquier día de la quincena":"Cualquier día de la semana";
+  if(lab.firstChild&&lab.firstChild.nodeType===3) lab.firstChild.nodeValue=txt; else lab.insertBefore(document.createTextNode(txt),lab.firstChild); }
 function openInvoiceSheet(){
   if(inJob==="__all") return; const c=cfg();
   document.getElementById("inv_jobName").textContent=inJob;
   document.getElementById("inv_anyDay").value=todayStr();
+  invPeriodType="week";
+  document.querySelectorAll("#inv_periodType button").forEach(b=>b.classList.toggle("on",b.dataset.t==="week"));
+  setInvAnyDayLabel();
   const jc=(c.jobs||{})[inJob]||{};
   document.getElementById("inv_no").value=(jc.lastInvoiceNo||0)+1;
   document.getElementById("inv_name").value=c.invoiceName||"";
@@ -1608,20 +1621,24 @@ function openInvoiceSheet(){
 function closeInvoiceSheet(){ const sc=document.getElementById("invoiceScrim"); sc.classList.remove("open"); sc.setAttribute("aria-hidden","true"); }
 function renderInvoicePreview(){
   const any=document.getElementById("inv_anyDay").value; const box=document.getElementById("inv_preview"); if(!any||!box) return;
-  const monday=mondayOf(any); const data=buildInvoiceData(inJob,monday);
-  box.innerHTML=`<p class="hint">Semana: <b style="color:var(--ink)">${fmtShort(monday)} – ${fmtShort(ymdU(parseD(monday)+6*864e5))}</b> · ${data.totH.toFixed(2)}h · <b class="gld">${money(data.totT)}</b>${data.totH<=0?' · <span style="color:var(--terra)">sin turnos esta semana</span>':''}</p>`;
+  const c=cfg(); const {start,numDays}=periodRangeFor(invPeriodType,any,c);
+  const data=buildInvoiceData(inJob,start,numDays);
+  const label=invPeriodType==="fortnight"?"Quincena":"Semana";
+  const sinTurnos=invPeriodType==="fortnight"?"sin turnos esta quincena":"sin turnos esta semana";
+  box.innerHTML=`<p class="hint">${label}: <b style="color:var(--ink)">${fmtShort(start)} – ${fmtShort(ymdU(parseD(start)+(numDays-1)*864e5))}</b> · ${data.totH.toFixed(2)}h · <b class="gld">${money(data.totT)}</b>${data.totH<=0?' · <span style="color:var(--terra)">'+sinTurnos+'</span>':''}</p>`;
 }
 function generateInvoicePNG(){
-  const any=document.getElementById("inv_anyDay").value; if(!any){ toast("⚠︎ Elige un día de la semana"); return; }
-  const monday=mondayOf(any); const job=inJob; const c=cfg();
-  const data=buildInvoiceData(job,monday);
-  if(!data.rows.some(r=>r.hours>0)){ toast("⚠︎ No hay turnos de "+job+" esa semana"); return; }
+  const any=document.getElementById("inv_anyDay").value; if(!any){ toast("⚠︎ Elige un día del período"); return; }
+  const job=inJob; const c=cfg(); const {start,numDays}=periodRangeFor(invPeriodType,any,c);
+  const data=buildInvoiceData(job,start,numDays);
+  if(!data.rows.some(r=>r.hours>0)){ toast("⚠︎ No hay turnos de "+job+" en ese período"); return; }
   const name=document.getElementById("inv_name").value||c.invoiceName||"";
   const invoiceNo=Number(document.getElementById("inv_no").value)||1;
   const rate=(c.jobs&&c.jobs[job])?c.jobs[job].baseRate:c.baseRate;
-  const cv=drawInvoicePNG({name,rate,invoiceNo,mondayStr:monday,rows:data.rows,totGrossH:data.totGrossH,totT:data.totT});
+  const cv=drawInvoicePNG({name,rate,invoiceNo,mondayStr:start,rows:data.rows,totGrossH:data.totGrossH,totT:data.totT});
   const url=cv.toDataURL("image/png");
-  const fname="Invoice_"+job.replace(/[^a-zA-Z0-9]+/g,"")+"_"+invoiceNo+"_"+monday+".png";
+  const ptag=invPeriodType==="fortnight"?"Quincenal":"Semanal";
+  const fname="Invoice_"+job.replace(/[^a-zA-Z0-9]+/g,"")+"_"+ptag+"_"+invoiceNo+"_"+start+".png";
   const box=document.getElementById("inv_result");
   box.innerHTML=`<img src="${url}" style="width:100%;border-radius:12px;border:1px solid var(--line)" alt="Factura generada">
     <div class="btn-row" style="margin-top:12px"><a class="btn primary" id="inv_download" href="${url}" download="${esc(fname)}">⬇︎ Descargar PNG</a></div>`;
@@ -1827,6 +1844,9 @@ window.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("importScrim").addEventListener("click",e=>{if(e.target.id==="importScrim")closeImportSheet();});
   document.getElementById("in_invoiceBtn").onclick=openInvoiceSheet;
   document.getElementById("inv_anyDay").onchange=renderInvoicePreview;
+  document.getElementById("inv_periodType").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b||!b.dataset.t)return;
+    invPeriodType=b.dataset.t; document.querySelectorAll("#inv_periodType button").forEach(x=>x.classList.toggle("on",x.dataset.t===invPeriodType));
+    setInvAnyDayLabel(); renderInvoicePreview();});
   document.getElementById("inv_generate").onclick=generateInvoicePNG;
   document.getElementById("inv_cancel").onclick=closeInvoiceSheet;
   document.getElementById("invoiceScrim").addEventListener("click",e=>{if(e.target.id==="invoiceScrim")closeInvoiceSheet();});
