@@ -441,6 +441,7 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
   </div>
 
   <div class="seg" id="in_job" style="margin:12px 0 0" role="group" aria-label="Filtrar por trabajo"></div>
+  <button class="btn ghost" id="in_invoiceBtn" type="button" style="margin-top:10px" hidden>🧾 Generar factura semanal</button>
   <div class="kpis" id="in_kpis"></div>
 
   <div class="block-h"><span class="sec-n">01</span><h2 class="sec">Tu hora vale</h2></div>
@@ -556,6 +557,7 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
 
     <h3 class="lbl">General (todos los trabajos)</h3>
     <div class="fg">
+      <label class="f">Nombre para factura<input type="text" id="c_invName" class="inp" placeholder="Tu nombre completo"></label>
       <label class="f">1 USD = ? AUD<input type="number" id="c_rate" class="inp" step="0.01"></label>
       <label class="f">Inicio de quincena (ancla)<input type="date" id="c_anchor" class="inp"></label>
       <label class="f">Meta de ingreso mensual (AUD)<input type="number" id="c_goal" class="inp" step="50" placeholder="0 = sin meta"></label>
@@ -611,6 +613,22 @@ tbody tr.cuadrable:hover td{background:color-mix(in srgb,var(--gold) 7%,var(--su
   </div>
 </div>
 
+<div class="scrim" id="invoiceScrim" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="invoiceTitle" style="max-width:520px">
+    <div class="grab"></div>
+    <h3 id="invoiceTitle">Factura semanal</h3>
+    <p class="hint" style="margin:-6px 0 14px">Se genera con tus turnos de <b id="inv_jobName"></b> de lunes a domingo.</p>
+    <div class="fg">
+      <label class="f">Cualquier día de la semana<input type="date" class="inp" id="inv_anyDay"></label>
+      <label class="f">Nº de factura<input type="number" class="inp" id="inv_no" step="1"></label>
+      <label class="f" style="grid-column:1/-1">Nombre para la factura<input type="text" class="inp" id="inv_name"></label>
+    </div>
+    <div id="inv_preview" style="margin-top:16px"></div>
+    <div class="btn-row" style="margin-top:16px"><button class="btn primary" id="inv_generate" type="button">Generar imagen</button>
+      <button class="btn ghost" id="inv_cancel" type="button">Cerrar</button></div>
+    <div id="inv_result" style="margin-top:16px"></div>
+  </div>
+</div>
 <div class="scrim" id="importScrim" aria-hidden="true">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="importTitle" style="max-width:640px">
     <div class="grab"></div>
@@ -655,7 +673,7 @@ function defaultSettings(base){ return {
   superBefore:"06:00", superPct:30,
   otThresh:8, otThreshFri:6, otM1:1.5, otM2:2, satTierHours:3,
   jobs:{"Blackline":jobBlackline(base),"Green & Clean":jobPlain(33)}, defaultJob:"Blackline",
-  goalMonthly:0, tolPct:2, recon:{}, milestonesSeen:[], autoHolidays:false, updatedAt:0
+  goalMonthly:0, tolPct:2, recon:{}, milestonesSeen:[], autoHolidays:false, invoiceName:"", updatedAt:0
 };}
 function jobRules(c,job){ const js=c&&c.jobs; if(!js) return c;
   const j=js[job]||js[c.defaultJob]||js[Object.keys(js)[0]];
@@ -747,6 +765,9 @@ let S=load();
     km.settings.jobs["Green & Clean"].baseRate=30; km.settings.gcRate30=1; km.settings.updatedAt=Date.now(); ch++; }
   if(km&&km.settings&&km.settings.jobs&&km.settings.jobs["Green & Clean"]&&!km.settings.gcRate33){
     km.settings.jobs["Green & Clean"].baseRate=33; km.settings.gcRate33=1; km.settings.updatedAt=Date.now(); ch++; }
+  if(km&&km.settings&&!km.settings.invoiceName){ km.settings.invoiceName="Khian Alexander Moya Reyes"; km.settings.updatedAt=Date.now(); ch++; }
+  if(km&&km.settings&&km.settings.jobs&&km.settings.jobs["Green & Clean"]&&km.settings.jobs["Green & Clean"].lastInvoiceNo==null){
+    km.settings.jobs["Green & Clean"].lastInvoiceNo=9; km.settings.updatedAt=Date.now(); ch++; }
   if(ch) localStorage.setItem(KEY,JSON.stringify(S));
 }catch(e){} })();
 function load(){ try{ const r=localStorage.getItem(KEY); if(r) return migrate(JSON.parse(r)); }catch(e){} return seedState(); }
@@ -864,12 +885,17 @@ function formHTML(p){ return `
   </div>
   <div class="fg" style="margin-top:14px">
     <label class="check"><input type="checkbox" id="${p}_hol"> Feriado <span id="${p}_holName" class="badge gold" hidden></span></label>
+    <label class="f">Sede / lugar (opc.)<input type="text" class="inp" id="${p}_site" placeholder="ej. aeropuerto"></label>
+    <label class="f">Cantidad (opc.)<input type="number" class="inp" id="${p}_qty" step="1" placeholder="ej. autos lavados"></label>
     <label class="f">Nota<input type="text" class="inp" id="${p}_note" placeholder="opcional"></label>
   </div>`;
 }
 function readForm(p){ const g=id=>document.getElementById(p+"_"+id);
+  const rawRate=g("rate")?g("rate").value:"", rawQty=g("qty")?g("qty").value:"";
   return { date:g("date").value, start:g("start").value, end:g("end").value, job:g("job").value||cfg().defaultJob,
-    rate:g("rate")?g("rate").value:"", brk:g("brk").value, holiday:g("hol").checked, note:g("note").value }; }
+    rateOverride:(rawRate!==""&&!isNaN(Number(rawRate)))?Number(rawRate):null,
+    brk:g("brk").value, holiday:g("hol").checked,
+    site:g("site")?g("site").value:"", qty:(rawQty!==""&&!isNaN(Number(rawQty)))?Number(rawQty):null, note:g("note").value }; }
 function fillJobChips(p,sel,after,keepRate){ const box=document.getElementById(p+"_jobChips"); if(!box) return;
   const names=jobNames(); const cur=(names.indexOf(sel)>=0)?sel:(cfg().defaultJob||names[0]);
   const inp=document.getElementById(p+"_job"); if(inp) inp.value=cur;
@@ -886,7 +912,7 @@ function renderBreakdown(p,boxId){
   if(!en.date||!en.start||!en.end){ box.innerHTML='<span class="hint">Completa fecha y horas para ver el cálculo…</span>'; return; }
   const c=jobRules(cfg(),en.job); const r=calcEntry(en,cfg());
   let rows=`<div><span>${hm(r.grossH)} trabajadas <b>−</b> ${hm(r.breakH)} descanso</span><span class="eq">= ${hm(r.hours)} pagadas</span></div>`;
-  if(r.reg>0) rows+=`<div><span>${r.isSuper?'Super (+'+c.superPct+'%)':'Normal'} ${r.reg.toFixed(2)}h × ${money(r.rate)}${en.rate?' <span style="color:var(--gold)">✎ manual</span>':''}</span><b>${money(r.regPay)}</b></div>`;
+  if(r.reg>0) rows+=`<div><span>${r.isSuper?'Super (+'+c.superPct+'%)':'Normal'} ${r.reg.toFixed(2)}h × ${money(r.rate)}${en.rateOverride!=null?' <span style="color:var(--gold)">✎ manual</span>':''}</span><b>${money(r.regPay)}</b></div>`;
   if(r.ot>0){ const lbl=(r.dow===6)?('Extra sábado '+r.ot1.toFixed(2)+'h×'+c.otM1+(r.ot2>0?(' + '+r.ot2.toFixed(2)+'h×'+c.otM2):'')):('Extra '+r.ot.toFixed(2)+'h ×'+c.otM1);
     rows+=`<div><span>${lbl}</span><b>${money(r.otPay)}</b></div>`; }
   box.innerHTML=`<div class="pv-top"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700">${esc(en.job||cfg().defaultJob)} · ${DAY_ES[r.dow]}${r.isSuper?' · Super S':''}</div></div>
@@ -1111,7 +1137,8 @@ function jobFilterPayments(list){ return inJob==="__all"?list:list.filter(p=>p.s
 function renderJobSeg(){ const box=document.getElementById("in_job"); if(!box) return;
   const names=jobNames(); if(inJob!=="__all"&&names.indexOf(inJob)<0) inJob="__all";
   box.innerHTML=`<button data-j="__all" type="button" class="${inJob==='__all'?'on':''}">Todos</button>`+
-    names.map(n=>`<button data-j="${esc(n)}" type="button" class="${inJob===n?'on':''}">${esc(n)}</button>`).join(""); }
+    names.map(n=>`<button data-j="${esc(n)}" type="button" class="${inJob===n?'on':''}">${esc(n)}</button>`).join("");
+  const ib=document.getElementById("in_invoiceBtn"); if(ib) ib.hidden=(inJob==="__all"); }
 function renderIngresos(){
   const c=cfg(), y=String(new Date().getFullYear()), mo=thisMonth();
   renderJobSeg();
@@ -1452,6 +1479,123 @@ function importFromImage(file){
       document.head.appendChild(sc); }
   },1800);
 }
+/* ===================== Factura semanal (imagen PNG) ===================== */
+const INV_MONTHS_EN=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const INV_DAY_LABELS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Domingo"];
+function mondayOf(dateStr){ const ms=parseD(dateStr); const dow=new Date(ms).getUTCDay(); const diff=(dow===0?-6:1-dow); return ymdU(ms+diff*864e5); }
+function weekDaysFrom(mondayStr){ const m=parseD(mondayStr); const out=[]; for(let i=0;i<7;i++) out.push(ymdU(m+i*864e5)); return out; }
+function invDateLabel(dateStr,i){ const d=parseD(dateStr); const dt=new Date(d); return INV_DAY_LABELS[i]+" "+dt.getUTCDate()+", "+INV_MONTHS_EN[dt.getUTCMonth()]; }
+function money2(v){ return "$ "+Number(v||0).toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtDMY(dateStr){ const dt=new Date(parseD(dateStr)); return String(dt.getUTCDate()).padStart(2,"0")+"/"+String(dt.getUTCMonth()+1).padStart(2,"0")+"/"+dt.getUTCFullYear(); }
+function buildInvoiceData(job,mondayStr){
+  const c=cfg(); const days=weekDaysFrom(mondayStr);
+  const rows=days.map((d,i)=>{
+    const ents=liveEntries().filter(e=>e.date===d&&jobOf(e)===job).sort((a,b)=>a.start<b.start?-1:1);
+    if(!ents.length) return {i,date:d,site:"",qty:null,start:"",end:"",brkH:0,grossH:0,hours:0,total:0,note:""};
+    let hours=0,grossH=0,total=0,brkMin=0,qty=null; const sites=[],notes=[];
+    ents.forEach(e=>{ const r=calcEntry(e,c); hours+=r.hours; grossH+=r.grossH; total+=r.total;
+      brkMin+=(e.brk!=null&&e.brk!=="")?Number(e.brk):jobRules(c,e.job).unpaidBreakMin;
+      if(e.site) sites.push(e.site); if(e.note) notes.push(e.note); if(e.qty!=null) qty=(qty||0)+Number(e.qty); });
+    return {i,date:d,site:sites.join(" / "),qty,start:ents[0].start,end:ents[ents.length-1].end,brkH:brkMin/60,grossH,hours,total,note:notes.join(" / ")};
+  });
+  return {rows,totGrossH:rows.reduce((s,r)=>s+r.grossH,0),totH:rows.reduce((s,r)=>s+r.hours,0),totT:rows.reduce((s,r)=>s+r.total,0)};
+}
+function drawInvoicePNG(opts){
+  const {name,rate,invoiceNo,mondayStr,rows,totGrossH,totT}=opts;
+  const hasQty=rows.some(r=>r.qty!=null);
+  const cols=hasQty
+    ? [["Fecha",190],["Sede",110],["Cant.",64],["Inicio",70],["Final",70],["Break",58],["Horas",64],["Total",86],["Novedades",170]]
+    : [["Fecha",210],["Sede",140],["Inicio",78],["Final",78],["Break",64],["Horas",70],["Total",96],["Novedades",196]];
+  const S=2, W=cols.reduce((s,cc)=>s+cc[1],0);
+  const headerH=46,subH=30,infoRowH=28,sectionH=30,theadH=32,rowH=32,totalRowH=36;
+  const infoTop=headerH+subH, infoH=infoRowH*4;
+  const H=infoTop+infoH+sectionH+theadH+rowH*7+totalRowH;
+  const cv=document.createElement("canvas"); cv.width=Math.ceil(W*S); cv.height=Math.ceil(H*S);
+  const ctx=cv.getContext("2d"); ctx.scale(S,S);
+  const DARK="#0E5C2F", MED="#2F9155", LIGHT="#EAF7EC", WHITE="#FFFFFF", INK="#173A24", TEAL="#136B8C", GOLDG="#0E8F63", LINE="#D8E6DC";
+  ctx.fillStyle=WHITE; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=DARK; ctx.fillRect(0,0,W,headerH);
+  ctx.fillStyle=WHITE; ctx.font="bold 20px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText("GREEN & CLEAN - INVOICE SEMANAL", W/2, headerH/2);
+  ctx.fillStyle=LIGHT; ctx.fillRect(0,headerH,W,subH);
+  ctx.fillStyle=DARK; ctx.font="italic 12px Arial";
+  ctx.fillText("Enviar cada viernes. El pago se realiza el lunes después de aprobación.", W/2, headerH+subH/2);
+  const infoLabels=["Nombre","Valor hora","Invoice No.","Perído"];
+  const infoValues=[name||"", money2(rate), String(invoiceNo), fmtDMY(mondayStr)+" - "+fmtDMY(ymdU(parseD(mondayStr)+6*864e5))];
+  const labelW=140;
+  for(let r=0;r<4;r++){
+    const y=infoTop+r*infoRowH;
+    ctx.fillStyle=DARK; ctx.fillRect(0,y,labelW,infoRowH);
+    ctx.fillStyle=WHITE; ctx.font="bold 12px Arial"; ctx.textAlign="left"; ctx.fillText(infoLabels[r],10,y+infoRowH/2);
+    ctx.fillStyle=WHITE; ctx.fillRect(labelW,y,W-labelW,infoRowH);
+    ctx.strokeStyle=LINE; ctx.strokeRect(labelW+0.5,y+0.5,W-labelW-1,infoRowH-1);
+    ctx.fillStyle=INK; ctx.font="12px Arial"; ctx.fillText(infoValues[r],labelW+10,y+infoRowH/2);
+  }
+  let y=infoTop+infoH;
+  ctx.fillStyle=DARK; ctx.fillRect(0,y,W,sectionH);
+  ctx.fillStyle=WHITE; ctx.font="bold 13px Arial"; ctx.textAlign="center"; ctx.fillText("HORAS TRABAJADAS",W/2,y+sectionH/2);
+  y+=sectionH;
+  ctx.fillStyle=MED; ctx.fillRect(0,y,W,theadH);
+  let x=0; ctx.font="bold 11px Arial"; ctx.fillStyle=WHITE;
+  cols.forEach(([label,w])=>{ ctx.textAlign="center"; ctx.fillText(label,x+w/2,y+theadH/2); x+=w; });
+  y+=theadH;
+  rows.forEach((r,idx)=>{
+    const rowY=y+idx*rowH;
+    ctx.fillStyle= idx%2===0? WHITE: LIGHT; ctx.fillRect(0,rowY,W,rowH);
+    ctx.strokeStyle=LINE; ctx.beginPath(); ctx.moveTo(0,rowY+rowH); ctx.lineTo(W,rowY+rowH); ctx.stroke();
+    let cx=0; ctx.fillStyle=INK; ctx.font="11px Arial";
+    const cells=hasQty
+      ? [invDateLabel(r.date,idx), r.site, r.qty!=null?String(r.qty):"", r.start||"", r.end||"", r.hours>0?r.brkH.toFixed(2):"", r.hours>0?r.grossH.toFixed(2):"", r.hours>0?money2(r.total):"$ -", r.note]
+      : [invDateLabel(r.date,idx), r.site, r.start||"", r.end||"", r.hours>0?r.brkH.toFixed(2):"", r.hours>0?r.grossH.toFixed(2):"", r.hours>0?money2(r.total):"$ -", r.note];
+    cols.forEach(([label,w],ci)=>{
+      ctx.textAlign=(ci===0||ci===cols.length-1)?"left":"center";
+      const txt=String(cells[ci]||""); const tx=ctx.textAlign==="left"?cx+8:cx+w/2;
+      ctx.fillText(txt,tx,rowY+rowH/2,w-12); cx+=w;
+    });
+  });
+  y+=rowH*7;
+  ctx.fillStyle=DARK; ctx.fillRect(0,y,W,totalRowH);
+  ctx.fillStyle=WHITE; ctx.font="bold 13px Arial"; ctx.textAlign="left"; ctx.fillText("TOTAL SEMANAL",12,y+totalRowH/2);
+  let hx=0,tx2=0,acc=0; cols.forEach(([label,w])=>{ if(label==="Horas") hx=acc+w/2; if(label==="Total") tx2=acc+w/2; acc+=w; });
+  ctx.textAlign="center";
+  ctx.fillStyle=TEAL; ctx.font="bold 13px Arial"; ctx.fillText(totGrossH.toFixed(2),hx,y+totalRowH/2);
+  ctx.fillStyle=GOLDG; ctx.font="bold 13px Arial"; ctx.fillText(money2(totT),tx2,y+totalRowH/2);
+  return cv;
+}
+function openInvoiceSheet(){
+  if(inJob==="__all") return; const c=cfg();
+  document.getElementById("inv_jobName").textContent=inJob;
+  document.getElementById("inv_anyDay").value=todayStr();
+  const jc=(c.jobs||{})[inJob]||{};
+  document.getElementById("inv_no").value=(jc.lastInvoiceNo||0)+1;
+  document.getElementById("inv_name").value=c.invoiceName||"";
+  document.getElementById("inv_result").innerHTML="";
+  renderInvoicePreview();
+  const sc=document.getElementById("invoiceScrim"); sc.classList.add("open"); sc.setAttribute("aria-hidden","false");
+}
+function closeInvoiceSheet(){ const sc=document.getElementById("invoiceScrim"); sc.classList.remove("open"); sc.setAttribute("aria-hidden","true"); }
+function renderInvoicePreview(){
+  const any=document.getElementById("inv_anyDay").value; const box=document.getElementById("inv_preview"); if(!any||!box) return;
+  const monday=mondayOf(any); const data=buildInvoiceData(inJob,monday);
+  box.innerHTML=`<p class="hint">Semana: <b style="color:var(--ink)">${fmtShort(monday)} – ${fmtShort(ymdU(parseD(monday)+6*864e5))}</b> · ${data.totH.toFixed(2)}h · <b class="gld">${money(data.totT)}</b>${data.totH<=0?' · <span style="color:var(--terra)">sin turnos esta semana</span>':''}</p>`;
+}
+function generateInvoicePNG(){
+  const any=document.getElementById("inv_anyDay").value; if(!any){ toast("⚠︎ Elige un día de la semana"); return; }
+  const monday=mondayOf(any); const job=inJob; const c=cfg();
+  const data=buildInvoiceData(job,monday);
+  if(!data.rows.some(r=>r.hours>0)){ toast("⚠︎ No hay turnos de "+job+" esa semana"); return; }
+  const name=document.getElementById("inv_name").value||c.invoiceName||"";
+  const invoiceNo=Number(document.getElementById("inv_no").value)||1;
+  const rate=(c.jobs&&c.jobs[job])?c.jobs[job].baseRate:c.baseRate;
+  const cv=drawInvoicePNG({name,rate,invoiceNo,mondayStr:monday,rows:data.rows,totGrossH:data.totGrossH,totT:data.totT});
+  const url=cv.toDataURL("image/png");
+  const fname="Invoice_"+job.replace(/[^a-zA-Z0-9]+/g,"")+"_"+invoiceNo+"_"+monday+".png";
+  const box=document.getElementById("inv_result");
+  box.innerHTML=`<img src="${url}" style="width:100%;border-radius:12px;border:1px solid var(--line)" alt="Factura generada">
+    <div class="btn-row" style="margin-top:12px"><a class="btn primary" id="inv_download" href="${url}" download="${esc(fname)}">⬇︎ Descargar PNG</a></div>`;
+  if(c.jobs&&c.jobs[job]){ c.jobs[job].lastInvoiceNo=invoiceNo; }
+  c.invoiceName=name; c.updatedAt=now(); save();
+}
 function ocrAmount(){if(!payFile||!payFile.type.startsWith("image/")){toast("OCR solo para imágenes");return;}const el=document.getElementById("pay_fileInfo");el.textContent="🔎 Leyendo comprobante… (unos segundos)";const run=()=>Tesseract.recognize(payFile.data,"eng").then(({data})=>{const t=data.text;let amt=null;for(const ln of t.split(/\n/)){if(/net|paid|total|deposit|pago|neto/i.test(ln)){const m=ln.match(/(\d{1,3}(?:[,\s]\d{3})*\.\d{2})/);if(m){amt=parseFloat(m[1].replace(/[,\s]/g,""));break;}}}if(amt==null){const all=[...t.matchAll(/(\d{1,3}(?:[,\s]\d{3})*\.\d{2})/g)].map(m=>parseFloat(m[1].replace(/[,\s]/g,"")));if(all.length)amt=Math.max(...all);}if(amt!=null){document.getElementById("pay_amount").value=amt.toFixed(2);showPayFile();toast("Monto sugerido: "+amt.toFixed(2)+" · verifica");}else{showPayFile();toast("No se detectó monto; ingrésalo manual");}}).catch(()=>{showPayFile();toast("OCR falló; ingresa manual");});if(window.Tesseract)run();else{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";s.onload=run;s.onerror=()=>{showPayFile();toast("No se pudo cargar OCR (sin internet?)");};document.head.appendChild(s);}}
 function clearPayForm(){ ["amount","tax","super","note"].forEach(k=>document.getElementById("pay_"+k).value=""); document.getElementById("pay_date").value=todayStr(); document.getElementById("pay_file").value=""; payFile=null; showPayFile(); document.getElementById("pay_ocr").hidden=true;
   editingPay=null; document.getElementById("pay_save").textContent="Agregar pago"; document.getElementById("pay_del").hidden=true; document.getElementById("pay_cancel").hidden=true; }
@@ -1488,7 +1632,7 @@ function loadConfigForm(){ const c=cfg(); const cur=curEditJob(); const j=(c.job
   v("c_otThresh",j.otThresh);v("c_otThreshFri",j.otThreshFri||0);v("c_otM1",j.otM1);v("c_satTier",j.satTierHours);v("c_otM2",j.otM2);
   const sa=document.getElementById("c_satAll"); if(sa) sa.checked=j.satAllPremium!==false;
   v("c_satMult",j.satMult!=null?j.satMult:1); v("c_sunMult",j.sunMult!=null?j.sunMult:1);
-  v("c_rate",c.audPerUsd);v("c_anchor",c.anchor);v("c_goal",c.goalMonthly||"");v("c_tolPct",c.tolPct);
+  v("c_invName",c.invoiceName||"");v("c_rate",c.audPerUsd);v("c_anchor",c.anchor);v("c_goal",c.goalMonthly||"");v("c_tolPct",c.tolPct);
   document.querySelectorAll(".chips [data-th]").forEach(b=>b.classList.toggle("on",b.dataset.th===S.theme));
 }
 function saveConfigForm(){ const c=cfg(); const cur=curEditJob(); const n=id=>Number(document.getElementById(id).value);
@@ -1501,7 +1645,7 @@ function saveConfigForm(){ const c=cfg(); const cur=curEditJob(); const n=id=>Nu
     j.satMult=n("c_satMult")||1; j.sunMult=n("c_sunMult")||1;
     if(cur===c.defaultJob) c.baseRate=j.baseRate;
   }
-  c.audPerUsd=n("c_rate")||1; c.anchor=document.getElementById("c_anchor").value||c.anchor;
+  c.invoiceName=document.getElementById("c_invName").value||""; c.audPerUsd=n("c_rate")||1; c.anchor=document.getElementById("c_anchor").value||c.anchor;
   c.goalMonthly=n("c_goal")||0; c.tolPct=n("c_tolPct")||2;
   c.updatedAt=now();
   save(); toast("✓ Ajustes de "+cur+" guardados"); renderAll();
@@ -1512,7 +1656,7 @@ let editingId=null;
 function openEdit(id){ const e=P().entries.find(x=>String(x.id)===String(id)); if(!e) return; editingId=id;
   const g=k=>document.getElementById("ed_"+k);
   g("date").value=e.date;g("start").value=e.start;g("end").value=e.end;g("brk").value=e.brk||"";g("hol").checked=!!e.holiday;g("note").value=e.note||"";
-  g("rate").value=e.rateOverride!=null?e.rateOverride:"";
+  g("rate").value=e.rateOverride!=null?e.rateOverride:""; g("site").value=e.site||""; g("qty").value=e.qty!=null?e.qty:"";
   fillJobChips("ed",jobOf(e),()=>renderBreakdown("ed","ed_preview"),true);
   document.querySelectorAll("#ed_brkChips .chip").forEach(c=>c.classList.toggle("on",c.dataset.brk===(e.brk||"")));
   applyHoliday("ed"); renderBreakdown("ed","ed_preview");
@@ -1521,7 +1665,7 @@ function openEdit(id){ const e=P().entries.find(x=>String(x.id)===String(id)); i
 function closeEdit(){ const sc=document.getElementById("sheetScrim"); sc.classList.remove("open"); sc.setAttribute("aria-hidden","true"); editingId=null; }
 function saveEdit(){ const e=P().entries.find(x=>String(x.id)===String(editingId)); if(!e) return; const f=readForm("ed");
   if(!f.date||!f.start||!f.end){ toast("⚠︎ Falta fecha u horario"); return; }
-  Object.assign(e,{date:f.date,start:f.start,end:f.end,job:f.job,rateOverride:(f.rate!==""&&!isNaN(Number(f.rate)))?Number(f.rate):null,brk:f.brk,holiday:f.holiday,note:f.note,updatedAt:now()});
+  Object.assign(e,{date:f.date,start:f.start,end:f.end,job:f.job,rateOverride:f.rateOverride,brk:f.brk,holiday:f.holiday,site:f.site||"",qty:f.qty,note:f.note,updatedAt:now()});
   save(); closeEdit(); renderAll(); toast("✓ Turno actualizado"); }
 function delEdit(){ const e=P().entries.find(x=>String(x.id)===String(editingId)); if(!e) return;
   e.deleted=true; e.updatedAt=now(); save(); closeEdit(); renderAll(); toast("Turno eliminado"); }
@@ -1649,7 +1793,13 @@ window.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("imp_save").onclick=saveImportedRows;
   document.getElementById("imp_cancel").onclick=closeImportSheet;
   document.getElementById("importScrim").addEventListener("click",e=>{if(e.target.id==="importScrim")closeImportSheet();});
+  document.getElementById("in_invoiceBtn").onclick=openInvoiceSheet;
+  document.getElementById("inv_anyDay").onchange=renderInvoicePreview;
+  document.getElementById("inv_generate").onclick=generateInvoicePNG;
+  document.getElementById("inv_cancel").onclick=closeInvoiceSheet;
+  document.getElementById("invoiceScrim").addEventListener("click",e=>{if(e.target.id==="invoiceScrim")closeInvoiceSheet();});
   document.addEventListener("keydown",e=>{if(e.key==="Escape")closeImportSheet();});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInvoiceSheet();});
   document.getElementById("in_period").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b||!b.dataset.per)return; inPeriod=b.dataset.per; document.querySelectorAll("#in_period button").forEach(x=>x.classList.toggle("on",x.dataset.per===inPeriod)); renderIngresos();});
   document.getElementById("in_job").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b||!b.dataset.j)return; inJob=b.dataset.j; renderIngresos();});
 
